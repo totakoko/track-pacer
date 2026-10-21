@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -125,10 +124,14 @@ fun RunScreen(viewModel: RunViewModel, onFinished: () -> Unit) {
                 }
             }
 
+            // Top-aligned, compact column: the bottom third is reserved for the two buttons.
             Column(
-                modifier = Modifier.fillMaxSize().padding(contentPadding).padding(horizontal = 16.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = contentPadding.calculateTopPadding())
+                    .padding(horizontal = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
+                verticalArrangement = Arrangement.Top,
             ) {
                 Text(
                     text = stringResource(R.string.block_number, state.blockNumber),
@@ -147,11 +150,7 @@ fun RunScreen(viewModel: RunViewModel, onFinished: () -> Unit) {
                     fontWeight = if (imminent) FontWeight.Bold else null,
                     textAlign = TextAlign.Center,
                 )
-                Text(
-                    text = PaceMath.formatChrono(elapsed, tenths = !ambient),
-                    style = MaterialTheme.typography.numeralLarge,
-                    color = if (ambient) Color.White else MaterialTheme.colorScheme.onBackground,
-                )
+                Chrono(elapsedMs = elapsed, tenths = !ambient, color = if (ambient) Color.White else MaterialTheme.colorScheme.onBackground)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center,
@@ -189,14 +188,13 @@ fun RunScreen(viewModel: RunViewModel, onFinished: () -> Unit) {
                         textAlign = TextAlign.Center,
                     )
                 }
-                Spacer(Modifier.height(44.dp))
             }
 
             if (!ambient && state.isActive) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
                     Row(
-                        modifier = Modifier.padding(bottom = 10.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.padding(bottom = 14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
                         when {
                             running -> {
@@ -223,6 +221,28 @@ fun RunScreen(viewModel: RunViewModel, onFinished: () -> Unit) {
                     }
                 }
             }
+        }
+    }
+}
+
+/** mm:ss in a large numeral, tenths in a smaller one so the whole thing fits a 192 dp screen. */
+@Composable
+private fun Chrono(elapsedMs: Long, tenths: Boolean, color: Color) {
+    Row(verticalAlignment = Alignment.Bottom) {
+        Text(
+            text = PaceMath.formatChrono(elapsedMs, tenths = false),
+            style = MaterialTheme.typography.numeralMedium,
+            color = color,
+            maxLines = 1,
+        )
+        if (tenths) {
+            Text(
+                text = ".${(elapsedMs / 100) % 10}",
+                style = MaterialTheme.typography.numeralExtraSmall,
+                color = color,
+                maxLines = 1,
+                modifier = Modifier.padding(bottom = 6.dp),
+            )
         }
     }
 }

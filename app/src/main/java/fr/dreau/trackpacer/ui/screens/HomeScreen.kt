@@ -4,7 +4,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Straighten
@@ -71,8 +70,7 @@ fun HomeScreen(
                 }
             } else {
                 EdgeButton(onClick = onStart) {
-                    Icon(Icons.Rounded.PlayArrow, contentDescription = null)
-                    Text(stringResource(R.string.start))
+                    Text(stringResource(R.string.start), maxLines = 1)
                 }
             }
         },
@@ -87,6 +85,7 @@ fun HomeScreen(
                 Button(
                     onClick = onEditPace,
                     modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.filledTonalButtonColors(),
                     icon = { Icon(Icons.Rounded.Speed, contentDescription = null) },
                     label = { Text(stringResource(R.string.target_pace)) },
                     secondaryLabel = {
@@ -98,6 +97,7 @@ fun HomeScreen(
                 Button(
                     onClick = onEditInterval,
                     modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.filledTonalButtonColors(),
                     icon = { Icon(Icons.Rounded.Straighten, contentDescription = null) },
                     label = { Text(stringResource(R.string.marks)) },
                     secondaryLabel = { Text(stringResource(R.string.every_meters, settings.intervalMeters)) },
