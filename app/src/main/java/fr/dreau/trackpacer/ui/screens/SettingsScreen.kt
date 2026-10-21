@@ -17,6 +17,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
+import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.ScreenScaffold
@@ -26,7 +27,7 @@ import fr.dreau.trackpacer.R
 import fr.dreau.trackpacer.ui.SettingsViewModel
 
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel) {
+fun SettingsScreen(viewModel: SettingsViewModel, onEditCues: () -> Unit) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val listState = rememberTransformingLazyColumnState()
 
@@ -37,9 +38,12 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                 Toggle(Icons.AutoMirrored.Rounded.VolumeUp, R.string.sound, settings.soundEnabled, viewModel::setSound)
             }
             item {
-                Toggle(
-                    Icons.Rounded.Timer, R.string.pre_beeps, settings.preBeepsEnabled, viewModel::setPreBeeps,
-                    secondary = R.string.pre_beeps_hint,
+                Button(
+                    onClick = onEditCues,
+                    modifier = Modifier.fillMaxWidth(),
+                    icon = { Icon(Icons.Rounded.Timer, contentDescription = null) },
+                    label = { Text(stringResource(R.string.cue_profile)) },
+                    secondaryLabel = { Text(stringResource(settings.cueProfile.titleRes())) },
                 )
             }
             item {

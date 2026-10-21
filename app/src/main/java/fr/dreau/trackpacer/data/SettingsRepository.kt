@@ -6,7 +6,9 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import fr.dreau.trackpacer.domain.CueProfile
 import fr.dreau.trackpacer.domain.PaceSettings
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -21,7 +23,7 @@ class SettingsRepository(private val context: Context) {
         val SECONDS_PER_KM = intPreferencesKey("seconds_per_km")
         val INTERVAL_METERS = intPreferencesKey("interval_meters")
         val SOUND = booleanPreferencesKey("sound")
-        val PRE_BEEPS = booleanPreferencesKey("pre_beeps")
+        val CUE_PROFILE = stringPreferencesKey("cue_profile")
         val VIBRATION = booleanPreferencesKey("vibration")
         val SHOW_HR = booleanPreferencesKey("show_hr")
         val SHOW_DISTANCE = booleanPreferencesKey("show_distance")
@@ -34,7 +36,7 @@ class SettingsRepository(private val context: Context) {
             secondsPerKm = p[Keys.SECONDS_PER_KM] ?: defaults.secondsPerKm,
             intervalMeters = p[Keys.INTERVAL_METERS] ?: defaults.intervalMeters,
             soundEnabled = p[Keys.SOUND] ?: defaults.soundEnabled,
-            preBeepsEnabled = p[Keys.PRE_BEEPS] ?: defaults.preBeepsEnabled,
+            cueProfile = CueProfile.fromName(p[Keys.CUE_PROFILE]),
             vibrationEnabled = p[Keys.VIBRATION] ?: defaults.vibrationEnabled,
             showHeartRate = p[Keys.SHOW_HR] ?: defaults.showHeartRate,
             showDistance = p[Keys.SHOW_DISTANCE] ?: defaults.showDistance,
@@ -52,7 +54,7 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setInterval(meters: Int) = context.dataStore.edit { it[Keys.INTERVAL_METERS] = meters }
     suspend fun setSound(enabled: Boolean) = context.dataStore.edit { it[Keys.SOUND] = enabled }
-    suspend fun setPreBeeps(enabled: Boolean) = context.dataStore.edit { it[Keys.PRE_BEEPS] = enabled }
+    suspend fun setCueProfile(profile: CueProfile) = context.dataStore.edit { it[Keys.CUE_PROFILE] = profile.name }
     suspend fun setVibration(enabled: Boolean) = context.dataStore.edit { it[Keys.VIBRATION] = enabled }
     suspend fun setShowHeartRate(enabled: Boolean) = context.dataStore.edit { it[Keys.SHOW_HR] = enabled }
     suspend fun setShowDistance(enabled: Boolean) = context.dataStore.edit { it[Keys.SHOW_DISTANCE] = enabled }

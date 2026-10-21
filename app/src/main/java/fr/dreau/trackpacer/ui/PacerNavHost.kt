@@ -8,6 +8,7 @@ import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.currentBackStackEntryAsState
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
+import fr.dreau.trackpacer.ui.screens.CueProfileScreen
 import fr.dreau.trackpacer.ui.screens.HomeScreen
 import fr.dreau.trackpacer.ui.screens.IntervalScreen
 import fr.dreau.trackpacer.ui.screens.PaceScreen
@@ -20,6 +21,7 @@ object Routes {
     const val PACE = "pace"
     const val INTERVAL = "interval"
     const val SETTINGS = "settings"
+    const val CUES = "cues"
     const val RUN = "run"
     const val SUMMARY = "summary"
 }
@@ -56,7 +58,13 @@ fun PacerNavHost() {
                 IntervalScreen(viewModel = settingsViewModel, onDone = { navController.popBackStack() })
             }
             composable(Routes.SETTINGS) {
-                SettingsScreen(viewModel = settingsViewModel)
+                SettingsScreen(
+                    viewModel = settingsViewModel,
+                    onEditCues = { navController.navigate(Routes.CUES) },
+                )
+            }
+            composable(Routes.CUES) {
+                CueProfileScreen(viewModel = settingsViewModel, onDone = { navController.popBackStack() })
             }
             composable(Routes.RUN) {
                 RunScreen(

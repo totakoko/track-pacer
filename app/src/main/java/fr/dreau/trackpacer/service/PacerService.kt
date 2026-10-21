@@ -119,7 +119,7 @@ class PacerService : LifecycleService() {
     private fun fire(event: SplitEvent) {
         if (settings.soundEnabled) beeper.play(event.kind)
         if (settings.vibrationEnabled) haptics.play(event.kind)
-        if (event.kind != SplitEvent.Kind.PRE_BEEP) {
+        if (!event.isPreCue) {
             stateHolder.update {
                 it.copy(lastMark = MarkHit(event.markMeters, event.kind == SplitEvent.Kind.LAP, SystemClock.elapsedRealtime()))
             }

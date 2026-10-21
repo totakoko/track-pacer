@@ -19,13 +19,19 @@ class Beeper {
         const val FADE_MS = 6
     }
 
-    private val preBeep = buildTrack(tone(880.0, 90))
-    private val mark = buildTrack(tone(1_480.0, 230))
-    private val lap = buildTrack(tone(1_480.0, 150) + silence(70) + tone(1_480.0, 150) + silence(70) + tone(1_760.0, 260))
+    /** Early warning: single low "mini" beep. */
+    private val early = buildTrack(tone(660.0, 130))
+    /** Countdown: short, mid pitch. */
+    private val count = buildTrack(tone(880.0, 90))
+    /** Mark: double high beep. */
+    private val mark = buildTrack(tone(1_480.0, 140) + silence(60) + tone(1_480.0, 140))
+    /** Lap (400 m multiple): triple beep with a rising tail. */
+    private val lap = buildTrack(tone(1_480.0, 140) + silence(60) + tone(1_480.0, 140) + silence(60) + tone(1_760.0, 260))
 
     fun play(kind: SplitEvent.Kind) {
         val track = when (kind) {
-            SplitEvent.Kind.PRE_BEEP -> preBeep
+            SplitEvent.Kind.EARLY_BEEP -> early
+            SplitEvent.Kind.COUNT_BEEP -> count
             SplitEvent.Kind.MARK -> mark
             SplitEvent.Kind.LAP -> lap
         }
@@ -37,7 +43,7 @@ class Beeper {
     }
 
     fun release() {
-        listOf(preBeep, mark, lap).forEach { runCatching { it.release() } }
+        listOf(early, count, mark, lap).forEach { runCatching { it.release() } }
     }
 
     private fun buildTrack(pcm: ShortArray): AudioTrack {

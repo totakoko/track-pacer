@@ -10,7 +10,7 @@ data class PaceSettings(
     val secondsPerKm: Int = 285,
     val intervalMeters: Int = 100,
     val soundEnabled: Boolean = true,
-    val preBeepsEnabled: Boolean = true,
+    val cueProfile: CueProfile = CueProfile.DEFAULT,
     val vibrationEnabled: Boolean = true,
     val showHeartRate: Boolean = true,
     val showDistance: Boolean = true,

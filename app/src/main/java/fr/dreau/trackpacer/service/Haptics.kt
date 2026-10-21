@@ -14,8 +14,9 @@ class Haptics(context: Context) {
     fun play(kind: SplitEvent.Kind) {
         if (!vibrator.hasVibrator()) return
         val effect = when (kind) {
-            SplitEvent.Kind.PRE_BEEP -> VibrationEffect.createOneShot(40, VibrationEffect.DEFAULT_AMPLITUDE)
-            SplitEvent.Kind.MARK -> VibrationEffect.createOneShot(180, VibrationEffect.DEFAULT_AMPLITUDE)
+            SplitEvent.Kind.EARLY_BEEP -> VibrationEffect.createOneShot(90, VibrationEffect.DEFAULT_AMPLITUDE)
+            SplitEvent.Kind.COUNT_BEEP -> VibrationEffect.createOneShot(40, VibrationEffect.DEFAULT_AMPLITUDE)
+            SplitEvent.Kind.MARK -> VibrationEffect.createWaveform(longArrayOf(0, 120, 60, 120), -1)
             SplitEvent.Kind.LAP -> VibrationEffect.createWaveform(longArrayOf(0, 120, 80, 120, 80, 250), -1)
         }
         runCatching { vibrator.vibrate(effect) }

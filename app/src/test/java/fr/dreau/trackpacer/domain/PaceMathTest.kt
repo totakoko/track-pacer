@@ -6,7 +6,8 @@ import org.junit.Test
 
 class PaceMathTest {
 
-    private val s = PaceSettings(secondsPerKm = 285, intervalMeters = 100) // 4:45/km → 28.5 s per 100 m
+    // 4:45/km → 28.5 s per 100 m, classic 3-2-1 profile
+    private val s = PaceSettings(secondsPerKm = 285, intervalMeters = 100, cueProfile = CueProfile.COUNTDOWN_3)
 
     @Test
     fun splitDuration_isMetersTimesSecondsPerKm() {
@@ -32,11 +33,11 @@ class PaceMathTest {
     @Test
     fun nextEvent_returnsPreBeepsThenMarkThenLap() {
         val e1 = PaceMath.nextEvent(0, s)
-        assertEquals(SplitEvent(25_500L, 100, SplitEvent.Kind.PRE_BEEP, 3), e1)
+        assertEquals(SplitEvent(25_500L, 100, SplitEvent.Kind.COUNT_BEEP, 3), e1)
         val e2 = PaceMath.nextEvent(e1.atMs, s)
-        assertEquals(SplitEvent(26_500L, 100, SplitEvent.Kind.PRE_BEEP, 2), e2)
+        assertEquals(SplitEvent(26_500L, 100, SplitEvent.Kind.COUNT_BEEP, 2), e2)
         val e3 = PaceMath.nextEvent(e2.atMs, s)
-        assertEquals(SplitEvent(27_500L, 100, SplitEvent.Kind.PRE_BEEP, 1), e3)
+        assertEquals(SplitEvent(27_500L, 100, SplitEvent.Kind.COUNT_BEEP, 1), e3)
         val e4 = PaceMath.nextEvent(e3.atMs, s)
         assertEquals(SplitEvent(28_500L, 100, SplitEvent.Kind.MARK), e4)
 
@@ -45,13 +46,29 @@ class PaceMathTest {
     }
 
     @Test
-    fun nextEvent_skipsPreBeepsWhenDisabledOrSplitTooShort() {
-        val noPre = s.copy(preBeepsEnabled = false)
-        assertEquals(SplitEvent.Kind.MARK, PaceMath.nextEvent(0, noPre).kind)
+    fun nextEvent_markOnlyProfileHasNoPreCues() {
+        val noPre = s.copy(cueProfile = CueProfile.MARK_ONLY)
+        assertEquals(SplitEvent(28_500L, 100, SplitEvent.Kind.MARK), PaceMath.nextEvent(0, noPre))
+    }
 
-        val fast = PaceSettings(secondsPerKm = 100, intervalMeters = 50) // 5 s split
-        assertEquals(SplitEvent.Kind.MARK, PaceMath.nextEvent(0, fast).kind)
-        assertEquals(5_000L, PaceMath.nextEvent(0, fast).atMs)
+    @Test
+    fun nextEvent_earlyCueThenCountdown() {
+        val early = s.copy(cueProfile = CueProfile.EARLY_10_COUNTDOWN_3)
+        val e1 = PaceMath.nextEvent(0, early)
+        assertEquals(SplitEvent(18_500L, 100, SplitEvent.Kind.EARLY_BEEP, 10), e1)
+        val e2 = PaceMath.nextEvent(e1.atMs, early)
+        assertEquals(SplitEvent(25_500L, 100, SplitEvent.Kind.COUNT_BEEP, 3), e2)
+    }
+
+    @Test
+    fun nextEvent_dropsCuesThatDoNotFitInTheSplit() {
+        // 2:00/km over 50 m = 6 s split: the 10 s cue cannot fit, 3-2-1 still can.
+        val fast = PaceSettings(secondsPerKm = 120, intervalMeters = 50, cueProfile = CueProfile.EARLY_10_COUNTDOWN_3)
+        assertEquals(SplitEvent(3_000L, 50, SplitEvent.Kind.COUNT_BEEP, 3), PaceMath.nextEvent(0, fast))
+
+        // 5 s split: the 3 s cue would sit 2 s after the previous mark, so the countdown starts at 2.
+        val faster = PaceSettings(secondsPerKm = 100, intervalMeters = 50, cueProfile = CueProfile.COUNTDOWN_3)
+        assertEquals(SplitEvent(3_000L, 50, SplitEvent.Kind.COUNT_BEEP, 2), PaceMath.nextEvent(0, faster))
     }
 
     @Test

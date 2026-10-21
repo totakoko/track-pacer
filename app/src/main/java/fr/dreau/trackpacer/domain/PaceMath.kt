@@ -6,11 +6,8 @@ import java.util.Locale
 object PaceMath {
     const val LAP_METERS = 400
 
-    /** Countdown beeps fire this many seconds before each mark. */
-    val PRE_BEEP_OFFSETS_MS = longArrayOf(3_000L, 2_000L, 1_000L)
-
-    /** Pre-beeps are only meaningful if the split is long enough to hear them apart. */
-    private const val MIN_SPLIT_FOR_PRE_BEEPS_MS = 6_000L
+    /** A pre-cue is dropped when it would fall too close to the previous mark. */
+    private const val MIN_GAP_AFTER_PREVIOUS_MARK_MS = 2_500L
 
     fun splitDurationMs(secondsPerKm: Int, intervalMeters: Int): Long =
         intervalMeters.toLong() * secondsPerKm
@@ -39,19 +36,19 @@ object PaceMath {
 
     /**
      * Next audible/haptic event strictly after [elapsedMs].
-     * Candidates are the pre-beeps (if enabled and the split is long enough) and the mark itself.
+     * Candidates are the profile's pre-cues (those that fit inside the split) and the mark itself.
      */
     fun nextEvent(elapsedMs: Long, settings: PaceSettings): SplitEvent {
         val splitMs = settings.splitMs
         val index = nextSplitIndex(elapsedMs, splitMs)
         val markAt = index * splitMs
         val meters = index * settings.intervalMeters
-        if (settings.preBeepsEnabled && splitMs >= MIN_SPLIT_FOR_PRE_BEEPS_MS) {
-            for (offset in PRE_BEEP_OFFSETS_MS) {
-                val at = markAt - offset
-                if (at > elapsedMs) {
-                    return SplitEvent(at, meters, SplitEvent.Kind.PRE_BEEP, (offset / 1000).toInt())
-                }
+        for (offset in settings.cueProfile.offsetsMs) {
+            if (offset > splitMs - MIN_GAP_AFTER_PREVIOUS_MARK_MS) continue
+            val at = markAt - offset
+            if (at > elapsedMs) {
+                val kind = if (offset >= CueProfile.EARLY_THRESHOLD_MS) SplitEvent.Kind.EARLY_BEEP else SplitEvent.Kind.COUNT_BEEP
+                return SplitEvent(at, meters, kind, (offset / 1000).toInt())
             }
         }
         val kind = if (isLapMark(meters)) SplitEvent.Kind.LAP else SplitEvent.Kind.MARK
@@ -84,8 +81,10 @@ data class SplitEvent(
     val atMs: Long,
     val markMeters: Int,
     val kind: Kind,
-    /** For PRE_BEEP: seconds remaining before the mark (3, 2 or 1). */
+    /** For pre-cues: seconds remaining before the mark. */
     val secondsBefore: Int = 0,
 ) {
-    enum class Kind { PRE_BEEP, MARK, LAP }
+    enum class Kind { EARLY_BEEP, COUNT_BEEP, MARK, LAP }
+
+    val isPreCue: Boolean get() = kind == Kind.EARLY_BEEP || kind == Kind.COUNT_BEEP
 }
