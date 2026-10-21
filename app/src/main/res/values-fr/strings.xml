@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Track Pacer</string>
+    <string name="start">Démarrer</string>
+    <string name="resume_session">Reprendre</string>
+    <string name="target_pace">Allure cible</string>
+    <string name="pace_value">%1$s /km</string>
+    <string name="per_km">/km</string>
+    <string name="minutes">Minutes</string>
+    <string name="seconds">Secondes</string>
+    <string name="confirm">Valider</string>
+    <string name="marks">Repères</string>
+    <string name="every_meters">Tous les %1$d m</string>
+    <string name="split_hint">%1$d m toutes les %2$s</string>
+    <string name="settings">Réglages</string>
+    <string name="sound">Bips</string>
+    <string name="pre_beeps">Compte à rebours</string>
+    <string name="pre_beeps_hint">3 bips courts avant chaque repère</string>
+    <string name="vibration">Vibration</string>
+    <string name="show_heart_rate">Fréquence cardiaque</string>
+    <string name="show_distance">Distance</string>
+    <string name="show_distance_hint">Où tu devrais être à cette allure</string>
+    <string name="keep_screen_on">Écran allumé</string>
+    <string name="keep_screen_on_hint">Pendant que le chrono tourne</string>
+    <string name="block_number">Bloc %1$d</string>
+    <string name="next_mark">%1$d m dans %2$d s</string>
+    <string name="block_stopped">Arrêté</string>
+    <string name="heart_rate">Fréquence cardiaque</string>
+    <string name="stop">Stop</string>
+    <string name="new_block">Nouveau bloc</string>
+    <string name="finish">Terminer</string>
+    <string name="degraded_hint">Permission manquante : les bips peuvent dériver en mode always-on</string>
+    <string name="summary">Séance</string>
+    <string name="theoretical_distance">≈ %1$s à l\'allure cible</string>
+    <string name="no_blocks">Aucun bloc enregistré</string>
+    <string name="close">Fermer</string>
+    <string name="channel_name">Séance d\'allure</string>
+    <string name="ongoing_running">Allure en cours</string>
+    <string name="ongoing_stopped">Chrono arrêté</string>
+</resources>
