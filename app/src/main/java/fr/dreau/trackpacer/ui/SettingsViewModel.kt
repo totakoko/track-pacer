@@ -6,6 +6,10 @@ import androidx.lifecycle.viewModelScope
 import fr.dreau.trackpacer.PacerApp
 import fr.dreau.trackpacer.domain.CueProfile
 import fr.dreau.trackpacer.domain.PaceSettings
+import fr.dreau.trackpacer.domain.SplitEvent
+import fr.dreau.trackpacer.service.Beeper
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -19,7 +23,32 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun setPace(secondsPerKm: Int) = viewModelScope.launch { repository.setPace(secondsPerKm) }
     fun setInterval(meters: Int) = viewModelScope.launch { repository.setInterval(meters) }
+    private var previewBeeper: Beeper? = null
+    private var previewJob: Job? = null
+
     fun setSound(on: Boolean) = viewModelScope.launch { repository.setSound(on) }
+    fun setVolumeLevel(level: Int) = viewModelScope.launch { repository.setVolumeLevel(level) }
+
+    /** Plays early → countdown → mark → lap so the user can judge sound and volume. */
+    fun previewCues() {
+        previewJob?.cancel()
+        previewJob = viewModelScope.launch {
+            val beeper = previewBeeper ?: Beeper().also { previewBeeper = it }
+            beeper.setVolume(settings.value.volumeGain)
+            beeper.play(SplitEvent.Kind.EARLY_BEEP)
+            delay(900)
+            beeper.play(SplitEvent.Kind.COUNT_BEEP)
+            delay(500)
+            beeper.play(SplitEvent.Kind.MARK)
+            delay(900)
+            beeper.play(SplitEvent.Kind.LAP)
+        }
+    }
+
+    override fun onCleared() {
+        previewBeeper?.release()
+        previewBeeper = null
+    }
     fun setCueProfile(profile: CueProfile) = viewModelScope.launch { repository.setCueProfile(profile) }
     fun setVibration(on: Boolean) = viewModelScope.launch { repository.setVibration(on) }
     fun setShowHeartRate(on: Boolean) = viewModelScope.launch { repository.setShowHeartRate(on) }

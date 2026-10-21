@@ -77,13 +77,16 @@ class PacerService : LifecycleService() {
     }
 
     private fun startSession() {
+        if (stateHolder.state.value.isActive) return // double tap on Start
         // startForeground() must be called promptly after startForegroundService(): do it
         // before any suspending work.
+        stateHolder.update { RunState() }
         promoteToForeground()
         acquireWakeLock()
         lifecycleScope.launch {
             settings = (application as PacerApp).settingsRepository.current()
-            stateHolder.update { RunState(settings = settings, degraded = it.degraded) }
+            beeper.setVolume(settings.volumeGain)
+            stateHolder.update { it.copy(settings = settings) }
             if (settings.showHeartRate && Permissions.isGranted(this@PacerService, Permissions.heartRate)) {
                 heartRate = HeartRateMonitor(this@PacerService) { bpm ->
                     stateHolder.update { it.copy(heartRateBpm = bpm) }
@@ -94,6 +97,7 @@ class PacerService : LifecycleService() {
     }
 
     private fun startBlock(number: Int) {
+        if (!foregroundStarted) promoteToForeground() // permissions may have been granted since
         val start = SystemClock.elapsedRealtime()
         stateHolder.update {
             it.copy(
@@ -205,6 +209,7 @@ class PacerService : LifecycleService() {
             heartRate = null
             releaseWakeLock()
             ServiceCompat.stopForeground(this@PacerService, ServiceCompat.STOP_FOREGROUND_REMOVE)
+            foregroundStarted = false
             stopSelf()
         }
     }
@@ -216,9 +221,11 @@ class PacerService : LifecycleService() {
         val notification = buildNotification()
         try {
             ServiceCompat.startForeground(
-                this, NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH,
+                this, NOTIFICATION_ID, notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH or ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK,
             )
             foregroundStarted = true
+            stateHolder.update { it.copy(degraded = false) }
         } catch (e: Exception) {
             // Typically SecurityException when ACTIVITY_RECOGNITION was denied: keep running
             // in-process; cues may be delayed if the watch goes to sleep.
@@ -283,6 +290,7 @@ class PacerService : LifecycleService() {
     }
 
     private fun acquireWakeLock() {
+        if (wakeLock?.isHeld == true) return
         val pm = getSystemService(PowerManager::class.java)
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "$TAG:session").also {
             it.acquire(MAX_SESSION_MS)

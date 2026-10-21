@@ -6,6 +6,10 @@ import android.view.WindowManager
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -103,8 +107,29 @@ fun RunScreen(viewModel: RunViewModel, onFinished: () -> Unit) {
     val progress = if (running) PaceMath.progressInSplit(elapsed, settings.splitMs) else 1f
     val accent = if (state.lastMark?.isLap == true) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
 
+    // The side button is reserved by the system on the Pixel Watch, so the whole screen is
+    // the control: tap = pause / resume, long press = end the block.
+    val haptic = LocalHapticFeedback.current
+    val gestureModifier = Modifier.pointerInput(state.phase) {
+        detectTapGestures(
+            onTap = {
+                when (state.phase) {
+                    RunPhase.RUNNING -> { haptic.performHapticFeedback(HapticFeedbackType.Confirm); viewModel.pause() }
+                    RunPhase.PAUSED -> { haptic.performHapticFeedback(HapticFeedbackType.Confirm); viewModel.resume() }
+                    else -> Unit
+                }
+            },
+            onLongPress = {
+                if (state.phase == RunPhase.RUNNING || state.phase == RunPhase.PAUSED) {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    viewModel.stopBlock()
+                }
+            },
+        )
+    }
+
     ScreenScaffold { contentPadding ->
-        Box(modifier = Modifier.fillMaxSize()) {
+        Box(modifier = Modifier.fillMaxSize().then(gestureModifier)) {
             if (!ambient) {
                 CircularProgressIndicator(
                     progress = { progress },
@@ -184,8 +209,9 @@ fun RunScreen(viewModel: RunViewModel, onFinished: () -> Unit) {
                     Text(
                         text = stringResource(R.string.degraded_hint),
                         style = MaterialTheme.typography.bodyExtraSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.error,
                         textAlign = TextAlign.Center,
+                        maxLines = 1,
                     )
                 }
             }

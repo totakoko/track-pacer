@@ -3,6 +3,7 @@ package fr.dreau.trackpacer.ui.screens
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.Straighten
 import androidx.compose.material.icons.rounded.Timer
@@ -20,10 +21,14 @@ import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.ListHeader
+import androidx.wear.compose.material3.MaterialTheme
+import androidx.wear.compose.material3.Slider
+import androidx.wear.compose.material3.SliderDefaults
 import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.SwitchButton
 import androidx.wear.compose.material3.Text
 import fr.dreau.trackpacer.R
+import fr.dreau.trackpacer.domain.PaceSettings
 import fr.dreau.trackpacer.ui.SettingsViewModel
 
 @Composable
@@ -36,6 +41,25 @@ fun SettingsScreen(viewModel: SettingsViewModel, onEditCues: () -> Unit) {
             item { ListHeader { Text(stringResource(R.string.settings), textAlign = TextAlign.Center) } }
             item {
                 Toggle(Icons.AutoMirrored.Rounded.VolumeUp, R.string.sound, settings.soundEnabled, viewModel::setSound)
+            }
+            item {
+                Slider(
+                    value = settings.volumeLevel,
+                    onValueChange = viewModel::setVolumeLevel,
+                    valueProgression = PaceSettings.MIN_VOLUME_LEVEL..PaceSettings.MAX_VOLUME_LEVEL,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = settings.soundEnabled,
+                    segmented = true,
+                )
+            }
+            item {
+                Button(
+                    onClick = viewModel::previewCues,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = settings.soundEnabled,
+                    icon = { Icon(Icons.Rounded.GraphicEq, contentDescription = null) },
+                    label = { Text(stringResource(R.string.preview_cues)) },
+                )
             }
             item {
                 Button(
@@ -82,6 +106,8 @@ private fun Toggle(
         modifier = Modifier.fillMaxWidth(),
         icon = { Icon(icon, contentDescription = null) },
         label = { Text(stringResource(label)) },
-        secondaryLabel = secondary?.let { { Text(stringResource(it)) } },
+        secondaryLabel = secondary?.let {
+            { Text(stringResource(it), style = MaterialTheme.typography.bodyExtraSmall, maxLines = 2) }
+        },
     )
 }

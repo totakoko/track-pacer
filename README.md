@@ -19,9 +19,11 @@ l'allure et la géométrie de la piste. À toi de regarder les marques au sol.
   précis grâce à un service de premier plan et un wake lock partiel.
 - Blocs : **Pause** / **Reprendre**, **Stop** fige le chrono et enregistre le bloc ;
   **Nouveau bloc** repart à zéro ; **Terminer** ouvre le récapitulatif (durée, distance théorique).
-- Bouton latéral pendant une séance : 1 appui = pause / reprise (ou nouveau bloc quand le
-  chrono est arrêté), 2 appuis rapprochés (< 0,45 s) = fin du bloc. L'appui long est réservé
-  par le système (Assistant, puis menu d'extinction) et ne parvient pas à l'application.
+- Gestes sur l'écran de course : appui n'importe où = pause / reprise, appui long = fin du
+  bloc (retour haptique). Le bouton latéral de la Pixel Watch 2 est une touche système
+  (récents, double appui = Wallet, appui long = Assistant) jamais transmise aux applications.
+- Sons synthétisés façon marimba (fondamentale + harmoniques, décroissance exponentielle),
+  volume réglable sur quatre niveaux et bouton « Test sonore » dans les réglages.
 - Indicateur d'activité en cours sur le cadran (chrono visible hors de l'app).
 
 ## Pile technique (octobre 2026)
@@ -77,4 +79,5 @@ Renseigner `sdk.dir` dans `local.properties`.
 - La distance affichée est **théorique** (temps ÷ allure). Le GPS de la montre n'est pas utilisé.
 - Si la permission « activité physique » est refusée, la séance tourne quand même mais le
   service ne peut pas passer en premier plan : les bips peuvent dériver en mode ambiant.
+  La promotion est retentée à chaque bloc une fois la permission accordée.
 - Non publié sur le Play Store : la clé de signature est celle de debug.

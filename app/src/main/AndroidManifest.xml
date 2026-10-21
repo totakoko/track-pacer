@@ -7,6 +7,8 @@
     <!-- Foreground session with the `health` type (Android 14+). -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH" />
+    <!-- Audio cues must keep playing when the watch face is in front (Android 16+ background audio hardening). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -49,6 +51,6 @@
         <service
             android:name=".service.PacerService"
             android:exported="false"
-            android:foregroundServiceType="health" />
+            android:foregroundServiceType="health|mediaPlayback" />
     </application>
 </manifest>

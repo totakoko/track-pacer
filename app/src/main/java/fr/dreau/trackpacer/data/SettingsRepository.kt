@@ -23,6 +23,7 @@ class SettingsRepository(private val context: Context) {
         val SECONDS_PER_KM = intPreferencesKey("seconds_per_km")
         val INTERVAL_METERS = intPreferencesKey("interval_meters")
         val SOUND = booleanPreferencesKey("sound")
+        val VOLUME_LEVEL = intPreferencesKey("volume_level")
         val CUE_PROFILE = stringPreferencesKey("cue_profile")
         val VIBRATION = booleanPreferencesKey("vibration")
         val SHOW_HR = booleanPreferencesKey("show_hr")
@@ -36,6 +37,7 @@ class SettingsRepository(private val context: Context) {
             secondsPerKm = p[Keys.SECONDS_PER_KM] ?: defaults.secondsPerKm,
             intervalMeters = p[Keys.INTERVAL_METERS] ?: defaults.intervalMeters,
             soundEnabled = p[Keys.SOUND] ?: defaults.soundEnabled,
+            volumeLevel = p[Keys.VOLUME_LEVEL] ?: defaults.volumeLevel,
             cueProfile = CueProfile.fromName(p[Keys.CUE_PROFILE]),
             vibrationEnabled = p[Keys.VIBRATION] ?: defaults.vibrationEnabled,
             showHeartRate = p[Keys.SHOW_HR] ?: defaults.showHeartRate,
@@ -54,6 +56,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setInterval(meters: Int) = context.dataStore.edit { it[Keys.INTERVAL_METERS] = meters }
     suspend fun setSound(enabled: Boolean) = context.dataStore.edit { it[Keys.SOUND] = enabled }
+    suspend fun setVolumeLevel(level: Int) = context.dataStore.edit {
+        it[Keys.VOLUME_LEVEL] = level.coerceIn(PaceSettings.MIN_VOLUME_LEVEL, PaceSettings.MAX_VOLUME_LEVEL)
+    }
     suspend fun setCueProfile(profile: CueProfile) = context.dataStore.edit { it[Keys.CUE_PROFILE] = profile.name }
     suspend fun setVibration(enabled: Boolean) = context.dataStore.edit { it[Keys.VIBRATION] = enabled }
     suspend fun setShowHeartRate(enabled: Boolean) = context.dataStore.edit { it[Keys.SHOW_HR] = enabled }

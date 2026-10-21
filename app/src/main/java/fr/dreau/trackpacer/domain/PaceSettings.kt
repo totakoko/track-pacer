@@ -10,6 +10,8 @@ data class PaceSettings(
     val secondsPerKm: Int = 285,
     val intervalMeters: Int = 100,
     val soundEnabled: Boolean = true,
+    /** 1..4 → 25 %, 50 %, 75 %, 100 % of the media volume. */
+    val volumeLevel: Int = 4,
     val cueProfile: CueProfile = CueProfile.DEFAULT,
     val vibrationEnabled: Boolean = true,
     val showHeartRate: Boolean = true,
@@ -19,7 +21,11 @@ data class PaceSettings(
     /** Time budget for one interval (e.g. 100 m at 4:45/km = 28 500 ms). */
     val splitMs: Long get() = PaceMath.splitDurationMs(secondsPerKm, intervalMeters)
 
+    val volumeGain: Float get() = volumeLevel.coerceIn(1, 4) / 4f
+
     companion object {
+        const val MIN_VOLUME_LEVEL = 1
+        const val MAX_VOLUME_LEVEL = 4
         val INTERVAL_CHOICES = listOf(50, 100, 200, 300, 400)
         const val MIN_SECONDS_PER_KM = 2 * 60      // 2:00/km
         const val MAX_SECONDS_PER_KM = 12 * 60 + 59 // 12:59/km

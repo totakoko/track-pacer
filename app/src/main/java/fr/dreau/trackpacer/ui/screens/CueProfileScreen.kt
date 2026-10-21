@@ -11,6 +11,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
 import androidx.wear.compose.material3.ListHeader
+import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.RadioButton
 import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.Text
@@ -40,7 +41,13 @@ fun CueProfileScreen(viewModel: SettingsViewModel, onDone: () -> Unit) {
                     },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text(stringResource(profile.titleRes())) },
-                    secondaryLabel = { Text(stringResource(profile.descriptionRes())) },
+                    secondaryLabel = {
+                        Text(
+                            stringResource(profile.descriptionRes()),
+                            style = MaterialTheme.typography.bodyExtraSmall,
+                            maxLines = 2,
+                        )
+                    },
                 )
             }
         }

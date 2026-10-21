@@ -28,21 +28,22 @@
     <string name="vibration">Vibration</string>
     <string name="show_heart_rate">Heart rate</string>
     <string name="show_distance">Distance</string>
-    <string name="show_distance_hint">Where you should be at this pace</string>
+    <string name="show_distance_hint">Theoretical, from the pace</string>
     <string name="keep_screen_on">Keep screen on</string>
-    <string name="keep_screen_on_hint">While the chrono runs</string>
+    <string name="keep_screen_on_hint">During a block</string>
     <string name="block_number">Block %1$d</string>
     <string name="next_mark">%1$d m in %2$d s</string>
     <string name="block_stopped">Stopped</string>
     <string name="block_paused">Paused</string>
     <string name="pause">Pause</string>
     <string name="resume">Resume</string>
-    <string name="button_hint">Side button: 1 press = pause / resume, 2 presses = end block</string>
+    <string name="button_hint">While running: tap = pause, long press = end block</string>
     <string name="heart_rate">Heart rate</string>
     <string name="stop">Stop</string>
     <string name="new_block">New block</string>
     <string name="finish">Finish</string>
-    <string name="degraded_hint">Background permission missing: cues may drift in always-on mode</string>
+    <string name="degraded_hint">Activity permission missing</string>
+    <string name="preview_cues">Sound test</string>
     <string name="summary">Session</string>
     <string name="theoretical_distance">≈ %1$s at target pace</string>
     <string name="no_blocks">No block recorded</string>

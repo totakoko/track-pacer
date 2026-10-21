@@ -3,6 +3,9 @@ package fr.dreau.trackpacer.ui.screens
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Speed
@@ -19,7 +22,6 @@ import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
-import androidx.wear.compose.material3.EdgeButton
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.MaterialTheme
@@ -60,21 +62,7 @@ fun HomeScreen(
         if (missing.isEmpty()) launchSession() else permissionLauncher.launch(missing)
     }
 
-    ScreenScaffold(
-        scrollState = listState,
-        edgeButton = {
-            if (runState.isActive) {
-                EdgeButton(onClick = onRun, colors = ButtonDefaults.filledTonalButtonColors()) {
-                    Icon(Icons.Rounded.Timer, contentDescription = null)
-                    Text(stringResource(R.string.resume_session))
-                }
-            } else {
-                EdgeButton(onClick = onStart) {
-                    Text(stringResource(R.string.start), maxLines = 1)
-                }
-            }
-        },
-    ) { contentPadding ->
+    ScreenScaffold(scrollState = listState) { contentPadding ->
         TransformingLazyColumn(state = listState, contentPadding = contentPadding) {
             item {
                 ListHeader {
@@ -126,13 +114,22 @@ fun HomeScreen(
                 )
             }
             item {
-                Text(
-                    text = stringResource(R.string.button_hint),
-                    style = MaterialTheme.typography.bodyExtraSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                if (runState.isActive) {
+                    Button(
+                        onClick = onRun,
+                        modifier = Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 24.dp),
+                        colors = ButtonDefaults.filledTonalButtonColors(),
+                        icon = { Icon(Icons.Rounded.Timer, contentDescription = null) },
+                        label = { Text(stringResource(R.string.resume_session)) },
+                    )
+                } else {
+                    Button(
+                        onClick = onStart,
+                        modifier = Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 24.dp),
+                        icon = { Icon(Icons.Rounded.PlayArrow, contentDescription = null) },
+                        label = { Text(stringResource(R.string.start)) },
+                    )
+                }
             }
         }
     }

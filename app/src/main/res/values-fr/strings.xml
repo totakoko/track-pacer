@@ -28,21 +28,22 @@
     <string name="vibration">Vibration</string>
     <string name="show_heart_rate">Fréquence cardiaque</string>
     <string name="show_distance">Distance</string>
-    <string name="show_distance_hint">Où tu devrais être à cette allure</string>
+    <string name="show_distance_hint">Théorique, selon l\'allure</string>
     <string name="keep_screen_on">Écran allumé</string>
-    <string name="keep_screen_on_hint">Pendant que le chrono tourne</string>
+    <string name="keep_screen_on_hint">Pendant un bloc</string>
     <string name="block_number">Bloc %1$d</string>
     <string name="next_mark">%1$d m dans %2$d s</string>
     <string name="block_stopped">Arrêté</string>
     <string name="block_paused">En pause</string>
     <string name="pause">Pause</string>
     <string name="resume">Reprendre</string>
-    <string name="button_hint">Bouton latéral : 1 appui = pause / reprise, 2 appuis = fin du bloc</string>
+    <string name="button_hint">Pendant le chrono : appui = pause, appui long = fin du bloc</string>
     <string name="heart_rate">Fréquence cardiaque</string>
     <string name="stop">Stop</string>
     <string name="new_block">Nouveau bloc</string>
     <string name="finish">Terminer</string>
-    <string name="degraded_hint">Permission manquante : les bips peuvent dériver en mode always-on</string>
+    <string name="degraded_hint">Permission activité manquante</string>
+    <string name="preview_cues">Test sonore</string>
     <string name="summary">Séance</string>
     <string name="theoretical_distance">≈ %1$s à l\'allure cible</string>
     <string name="no_blocks">Aucun bloc enregistré</string>
