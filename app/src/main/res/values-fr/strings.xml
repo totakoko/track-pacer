@@ -34,6 +34,10 @@
     <string name="block_number">Bloc %1$d</string>
     <string name="next_mark">%1$d m dans %2$d s</string>
     <string name="block_stopped">Arrêté</string>
+    <string name="block_paused">En pause</string>
+    <string name="pause">Pause</string>
+    <string name="resume">Reprendre</string>
+    <string name="button_hint">Bouton latéral : 1 appui = pause / reprise, 2 appuis = fin du bloc</string>
     <string name="heart_rate">Fréquence cardiaque</string>
     <string name="stop">Stop</string>
     <string name="new_block">Nouveau bloc</string>
@@ -46,4 +50,5 @@
     <string name="channel_name">Séance d\'allure</string>
     <string name="ongoing_running">Allure en cours</string>
     <string name="ongoing_stopped">Chrono arrêté</string>
+    <string name="ongoing_paused">En pause</string>
 </resources>

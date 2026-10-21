@@ -125,6 +125,15 @@ fun HomeScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
+            item {
+                Text(
+                    text = stringResource(R.string.button_hint),
+                    style = MaterialTheme.typography.bodyExtraSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
     }
 }

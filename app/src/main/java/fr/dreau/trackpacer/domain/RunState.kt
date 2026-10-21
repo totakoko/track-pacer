@@ -1,6 +1,6 @@
 package fr.dreau.trackpacer.domain
 
-enum class RunPhase { IDLE, RUNNING, STOPPED, FINISHED }
+enum class RunPhase { IDLE, RUNNING, PAUSED, STOPPED, FINISHED }
 
 /** One completed chronometer block (start → stop). */
 data class Block(val number: Int, val durationMs: Long, val secondsPerKm: Int) {
@@ -16,9 +16,9 @@ data class RunState(
     val phase: RunPhase = RunPhase.IDLE,
     val settings: PaceSettings = PaceSettings(),
     val blockNumber: Int = 0,
-    /** elapsedRealtime() at the start of the current block. */
+    /** Virtual elapsedRealtime() of the block start (shifted forward after each pause). */
     val blockStartRealtime: Long = 0L,
-    /** Frozen chrono value when the block is STOPPED. */
+    /** Frozen chrono value while PAUSED or STOPPED. */
     val frozenElapsedMs: Long = 0L,
     val completedBlocks: List<Block> = emptyList(),
     val heartRateBpm: Int? = null,
@@ -29,11 +29,11 @@ data class RunState(
 ) {
     fun elapsedMs(nowRealtime: Long): Long = when (phase) {
         RunPhase.RUNNING -> (nowRealtime - blockStartRealtime).coerceAtLeast(0L)
-        RunPhase.STOPPED -> frozenElapsedMs
+        RunPhase.PAUSED, RunPhase.STOPPED -> frozenElapsedMs
         else -> 0L
     }
 
-    val isActive: Boolean get() = phase == RunPhase.RUNNING || phase == RunPhase.STOPPED
+    val isActive: Boolean get() = phase == RunPhase.RUNNING || phase == RunPhase.PAUSED || phase == RunPhase.STOPPED
 }
 
 data class MarkHit(val meters: Int, val isLap: Boolean, val atRealtime: Long)

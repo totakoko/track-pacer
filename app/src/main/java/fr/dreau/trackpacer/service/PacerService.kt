@@ -53,6 +53,7 @@ class PacerService : LifecycleService() {
     private var schedulerJob: Job? = null
     private var settings: PaceSettings = PaceSettings()
     private var foregroundStarted = false
+    private var lastButtonPressRealtime = 0L
 
     override fun onCreate() {
         super.onCreate()
@@ -65,9 +66,12 @@ class PacerService : LifecycleService() {
         super.onStartCommand(intent, flags, startId)
         when (intent?.action) {
             ACTION_START -> startSession()
+            ACTION_PAUSE -> pauseBlock()
+            ACTION_RESUME -> resumeBlock()
             ACTION_STOP_BLOCK -> stopBlock()
             ACTION_NEW_BLOCK -> startBlock(stateHolder.state.value.blockNumber + 1)
             ACTION_FINISH -> finishSession()
+            ACTION_BUTTON -> onPhysicalButton()
         }
         return START_NOT_STICKY
     }
@@ -90,7 +94,6 @@ class PacerService : LifecycleService() {
     }
 
     private fun startBlock(number: Int) {
-        schedulerJob?.cancel()
         val start = SystemClock.elapsedRealtime()
         stateHolder.update {
             it.copy(
@@ -101,8 +104,57 @@ class PacerService : LifecycleService() {
                 lastMark = null,
             )
         }
-        updateOngoingStatus(start)
-        schedulerJob = lifecycleScope.launch(Dispatchers.Default) { runScheduler(start) }
+        launchScheduler(start)
+    }
+
+    private fun launchScheduler(blockStart: Long) {
+        schedulerJob?.cancel()
+        updateOngoingStatus(blockStart)
+        schedulerJob = lifecycleScope.launch(Dispatchers.Default) { runScheduler(blockStart) }
+    }
+
+    private fun pauseBlock() {
+        if (stateHolder.state.value.phase != RunPhase.RUNNING) return
+        schedulerJob?.cancel()
+        schedulerJob = null
+        val now = SystemClock.elapsedRealtime()
+        stateHolder.update { it.copy(phase = RunPhase.PAUSED, frozenElapsedMs = now - it.blockStartRealtime) }
+        updateOngoing(Status.Builder().addTemplate(getString(R.string.ongoing_paused)).build())
+    }
+
+    /** Resume by shifting the virtual start so the chrono continues from the frozen value. */
+    private fun resumeBlock() {
+        val state = stateHolder.state.value
+        if (state.phase != RunPhase.PAUSED) return
+        val start = SystemClock.elapsedRealtime() - state.frozenElapsedMs
+        stateHolder.update { it.copy(phase = RunPhase.RUNNING, blockStartRealtime = start) }
+        launchScheduler(start)
+    }
+
+    /**
+     * Side button: one press toggles pause (or starts the next block when stopped);
+     * two presses within [DOUBLE_PRESS_MS] end the block. A block shorter than one
+     * second is never ended this way, so a double press on "stopped" cannot record a
+     * phantom block.
+     */
+    private fun onPhysicalButton() {
+        val now = SystemClock.elapsedRealtime()
+        val state = stateHolder.state.value
+        val isDouble = now - lastButtonPressRealtime <= DOUBLE_PRESS_MS
+        lastButtonPressRealtime = now
+        if (isDouble && (state.phase == RunPhase.RUNNING || state.phase == RunPhase.PAUSED)) {
+            if (state.elapsedMs(now) >= 1_000L) {
+                stopBlock()
+                lastButtonPressRealtime = 0L
+            }
+            return
+        }
+        when (state.phase) {
+            RunPhase.RUNNING -> pauseBlock()
+            RunPhase.PAUSED -> resumeBlock()
+            RunPhase.STOPPED -> startBlock(state.blockNumber + 1)
+            RunPhase.IDLE, RunPhase.FINISHED -> Unit
+        }
     }
 
     /** Sleeps until each cue and fires it. Drift-free: every wait is recomputed from the clock. */
@@ -131,8 +183,11 @@ class PacerService : LifecycleService() {
         schedulerJob = null
         val now = SystemClock.elapsedRealtime()
         stateHolder.update { s ->
-            if (s.phase != RunPhase.RUNNING) return@update s
-            val duration = now - s.blockStartRealtime
+            val duration = when (s.phase) {
+                RunPhase.RUNNING -> now - s.blockStartRealtime
+                RunPhase.PAUSED -> s.frozenElapsedMs
+                else -> return@update s
+            }
             s.copy(
                 phase = RunPhase.STOPPED,
                 frozenElapsedMs = duration,
@@ -143,7 +198,7 @@ class PacerService : LifecycleService() {
     }
 
     private fun finishSession() {
-        if (stateHolder.state.value.phase == RunPhase.RUNNING) stopBlock()
+        if (stateHolder.state.value.phase in setOf(RunPhase.RUNNING, RunPhase.PAUSED)) stopBlock()
         stateHolder.update { it.copy(phase = RunPhase.FINISHED, heartRateBpm = null) }
         lifecycleScope.launch {
             heartRate?.stop()
@@ -251,13 +306,20 @@ class PacerService : LifecycleService() {
         private const val CHANNEL_ID = "pacer_session"
         private const val NOTIFICATION_ID = 1
         private const val MAX_SESSION_MS = 3L * 60 * 60 * 1000
+        private const val DOUBLE_PRESS_MS = 450L
 
         const val ACTION_START = "fr.dreau.trackpacer.START"
+        const val ACTION_PAUSE = "fr.dreau.trackpacer.PAUSE"
+        const val ACTION_RESUME = "fr.dreau.trackpacer.RESUME"
+        const val ACTION_BUTTON = "fr.dreau.trackpacer.BUTTON"
         const val ACTION_STOP_BLOCK = "fr.dreau.trackpacer.STOP_BLOCK"
         const val ACTION_NEW_BLOCK = "fr.dreau.trackpacer.NEW_BLOCK"
         const val ACTION_FINISH = "fr.dreau.trackpacer.FINISH"
 
         fun start(context: Context) = send(context, ACTION_START, foreground = true)
+        fun pause(context: Context) = send(context, ACTION_PAUSE)
+        fun resume(context: Context) = send(context, ACTION_RESUME)
+        fun physicalButton(context: Context) = send(context, ACTION_BUTTON)
         fun stopBlock(context: Context) = send(context, ACTION_STOP_BLOCK)
         fun newBlock(context: Context) = send(context, ACTION_NEW_BLOCK)
         fun finish(context: Context) = send(context, ACTION_FINISH)

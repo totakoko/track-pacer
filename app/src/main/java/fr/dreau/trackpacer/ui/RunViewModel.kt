@@ -14,6 +14,8 @@ class RunViewModel(application: Application) : AndroidViewModel(application) {
     val state: StateFlow<RunState> = holder.state
 
     fun startSession() = PacerService.start(getApplication())
+    fun pause() = PacerService.pause(getApplication())
+    fun resume() = PacerService.resume(getApplication())
     fun stopBlock() = PacerService.stopBlock(getApplication())
     fun newBlock() = PacerService.newBlock(getApplication())
     fun finishSession() = PacerService.finish(getApplication())

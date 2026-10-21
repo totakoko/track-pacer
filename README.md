@@ -8,16 +8,20 @@ l'allure et la géométrie de la piste. À toi de regarder les marques au sol.
 ## Fonctionnalités
 
 - Allure cible en min:s / km (de 2:00 à 12:59), repères configurables (50 à 400 m).
-- Cues : 3 bips courts à −3, −2, −1 s puis un bip long au repère ; signal distinct tous
-  les 400 m (tour). Vibration en miroir, chacun activable.
+- Signaux configurables par profils : repère seul, 3-2-1, bip grave 10 s avant,
+  10 s + 3-2-1 (défaut), 15 s + 5 s. Le repère est un double bip, le tour (400 m) un
+  triple bip. Vibration en miroir, chacun activable.
 - Écran de course : anneau de progression vers le prochain repère, compte à rebours,
   grand chrono au dixième, flash d'écran au repère.
 - Options : fréquence cardiaque (Health Services), distance **théorique** (où tu devrais
   être à cette allure), écran maintenu allumé.
 - Mode always-on : rendu ambiant simplifié (noir, blanc, 1 Hz) tout en gardant les bips
   précis grâce à un service de premier plan et un wake lock partiel.
-- Blocs : **Stop** fige le chrono ; **Nouveau bloc** repart à zéro ; **Terminer** ouvre le
-  récapitulatif des blocs (durée et distance théorique).
+- Blocs : **Pause** / **Reprendre**, **Stop** fige le chrono et enregistre le bloc ;
+  **Nouveau bloc** repart à zéro ; **Terminer** ouvre le récapitulatif (durée, distance théorique).
+- Bouton latéral pendant une séance : 1 appui = pause / reprise (ou nouveau bloc quand le
+  chrono est arrêté), 2 appuis rapprochés (< 0,45 s) = fin du bloc. L'appui long est réservé
+  par le système (Assistant, puis menu d'extinction) et ne parvient pas à l'application.
 - Indicateur d'activité en cours sur le cadran (chrono visible hors de l'app).
 
 ## Pile technique (octobre 2026)
@@ -73,5 +77,4 @@ Renseigner `sdk.dir` dans `local.properties`.
 - La distance affichée est **théorique** (temps ÷ allure). Le GPS de la montre n'est pas utilisé.
 - Si la permission « activité physique » est refusée, la séance tourne quand même mais le
   service ne peut pas passer en premier plan : les bips peuvent dériver en mode ambiant.
-- Pas de pause/reprise : un bloc s'arrête, le suivant repart de zéro (conforme au besoin).
 - Non publié sur le Play Store : la clé de signature est celle de debug.

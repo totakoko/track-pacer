@@ -34,6 +34,10 @@
     <string name="block_number">Block %1$d</string>
     <string name="next_mark">%1$d m in %2$d s</string>
     <string name="block_stopped">Stopped</string>
+    <string name="block_paused">Paused</string>
+    <string name="pause">Pause</string>
+    <string name="resume">Resume</string>
+    <string name="button_hint">Side button: 1 press = pause / resume, 2 presses = end block</string>
     <string name="heart_rate">Heart rate</string>
     <string name="stop">Stop</string>
     <string name="new_block">New block</string>
@@ -46,4 +50,5 @@
     <string name="channel_name">Pacing session</string>
     <string name="ongoing_running">Pacing in progress</string>
     <string name="ongoing_stopped">Chrono stopped</string>
+    <string name="ongoing_paused">Paused</string>
 </resources>

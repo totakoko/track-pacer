@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Flag
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.runtime.Composable
@@ -38,9 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.CircularProgressIndicator
-import androidx.wear.compose.material3.EdgeButton
 import androidx.wear.compose.material3.FilledIconButton
 import androidx.wear.compose.material3.FilledTonalIconButton
 import androidx.wear.compose.material3.Icon
@@ -97,6 +97,7 @@ fun RunScreen(viewModel: RunViewModel, onFinished: () -> Unit) {
     val elapsed = state.elapsedMs(now)
     val running = state.phase == RunPhase.RUNNING
     val stopped = state.phase == RunPhase.STOPPED
+    val paused = state.phase == RunPhase.PAUSED
     val nextMark = PaceMath.nextMarkMeters(elapsed, settings)
     val msToNext = PaceMath.msToNextMark(elapsed, settings)
     val imminent = running && msToNext <= IMMINENT_MS
@@ -137,6 +138,7 @@ fun RunScreen(viewModel: RunViewModel, onFinished: () -> Unit) {
                 Text(
                     text = when {
                         running -> stringResource(R.string.next_mark, nextMark, (msToNext + 999) / 1000)
+                        paused -> stringResource(R.string.block_paused)
                         stopped -> stringResource(R.string.block_stopped)
                         else -> ""
                     },
@@ -190,38 +192,51 @@ fun RunScreen(viewModel: RunViewModel, onFinished: () -> Unit) {
                 Spacer(Modifier.height(44.dp))
             }
 
-            if (!ambient) {
+            if (!ambient && state.isActive) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-                    if (running) {
-                        EdgeButton(
-                            onClick = viewModel::stopBlock,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer,
-                                contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                            ),
-                        ) {
-                            Icon(Icons.Rounded.Stop, contentDescription = null)
-                            Text(stringResource(R.string.stop))
-                        }
-                    } else if (stopped) {
-                        Row(
-                            modifier = Modifier.padding(bottom = 10.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            FilledIconButton(
-                                onClick = viewModel::newBlock,
-                                colors = IconButtonDefaults.filledIconButtonColors(),
-                            ) {
-                                Icon(Icons.Rounded.Replay, contentDescription = stringResource(R.string.new_block))
+                    Row(
+                        modifier = Modifier.padding(bottom = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        when {
+                            running -> {
+                                FilledIconButton(onClick = viewModel::pause) {
+                                    Icon(Icons.Rounded.Pause, contentDescription = stringResource(R.string.pause))
+                                }
+                                StopButton(onClick = viewModel::stopBlock)
                             }
-                            FilledTonalIconButton(onClick = viewModel::finishSession) {
-                                Icon(Icons.Rounded.Flag, contentDescription = stringResource(R.string.finish))
+                            paused -> {
+                                FilledIconButton(onClick = viewModel::resume) {
+                                    Icon(Icons.Rounded.PlayArrow, contentDescription = stringResource(R.string.resume))
+                                }
+                                StopButton(onClick = viewModel::stopBlock)
+                            }
+                            else -> {
+                                FilledIconButton(onClick = viewModel::newBlock) {
+                                    Icon(Icons.Rounded.Replay, contentDescription = stringResource(R.string.new_block))
+                                }
+                                FilledTonalIconButton(onClick = viewModel::finishSession) {
+                                    Icon(Icons.Rounded.Flag, contentDescription = stringResource(R.string.finish))
+                                }
                             }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun StopButton(onClick: () -> Unit) {
+    FilledIconButton(
+        onClick = onClick,
+        colors = IconButtonDefaults.filledIconButtonColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+        ),
+    ) {
+        Icon(Icons.Rounded.Stop, contentDescription = stringResource(R.string.stop))
     }
 }
 
