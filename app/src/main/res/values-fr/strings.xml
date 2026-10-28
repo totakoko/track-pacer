@@ -27,14 +27,15 @@
     <string name="auto_start">Départ auto</string>
     <string name="auto_start_hint">À la fin de la récup</string>
     <string name="auto_recovery">Récup auto</string>
-    <string name="auto_recovery_hint">Au temps cible de la rép</string>
+    <string name="auto_recovery_hint">Au temps cible</string>
     <string name="show_heart_rate">Cardio</string>
     <string name="show_heart_rate_hint">Consomme</string>
     <string name="show_distance">Distance</string>
     <string name="show_distance_hint">Théorique</string>
     <string name="keep_screen_on">Écran allumé</string>
     <string name="keep_screen_on_hint">Vide la batterie</string>
-    <string name="next_mark">%1$s dans %2$s</string>
+    <string name="next_cue">%1$s → %2$s</string>
+    <string name="resume_short">Reprise</string>
     <string name="rep_due">Fin de rép</string>
     <string name="recovery">Récup</string>
     <string name="paused">En pause</string>

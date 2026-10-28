@@ -27,14 +27,15 @@
     <string name="auto_start">Auto start</string>
     <string name="auto_start_hint">When recovery ends</string>
     <string name="auto_recovery">Auto recovery</string>
-    <string name="auto_recovery_hint">At the rep\'s due time</string>
+    <string name="auto_recovery_hint">At the due time</string>
     <string name="show_heart_rate">Heart rate</string>
     <string name="show_heart_rate_hint">Drains battery</string>
     <string name="show_distance">Distance</string>
     <string name="show_distance_hint">Theoretical</string>
     <string name="keep_screen_on">Keep screen on</string>
     <string name="keep_screen_on_hint">Drains the battery</string>
-    <string name="next_mark">%1$s in %2$s</string>
+    <string name="next_cue">%1$s → %2$s</string>
+    <string name="resume_short">Resume</string>
     <string name="rep_due">Rep due</string>
     <string name="recovery">Recovery</string>
     <string name="paused">Paused</string>

@@ -61,6 +61,7 @@ class PacerService : LifecycleService() {
     private var ongoingActivity: OngoingActivity? = null
     private var schedulerJob: Job? = null
     private var settings: PaceSettings = PaceSettings()
+    private var settingsJob: Job? = null
     private var foregroundStarted = false
 
     override fun onCreate() {
@@ -106,10 +107,42 @@ class PacerService : LifecycleService() {
                 }.also { it.start() }
             }
             startRep(1)
+            observeSettings()
         }
     }
 
-    private fun startRep(number: Int) {
+    /**
+     * Settings are reachable during a session (a swipe from the numbers): apply them live.
+     * The scheduler is re-armed from the clock, so a change never shifts a cue.
+     */
+    private fun observeSettings() {
+        settingsJob?.cancel()
+        settingsJob = lifecycleScope.launch {
+            (application as PacerApp).settingsRepository.settings.collect { fresh ->
+                if (fresh == settings) return@collect
+                val wasBoosting = settings.soundEnabled && settings.boostMediaVolume
+                settings = fresh
+                beeper.setVolume(fresh.volumeGain)
+                val boosting = fresh.soundEnabled && fresh.boostMediaVolume
+                if (boosting && !wasBoosting) volumeBoost.boost() else if (!boosting && wasBoosting) volumeBoost.restore()
+                stateHolder.update { it.copy(settings = fresh) }
+                when (stateHolder.state.value.phase) {
+                    RunPhase.RUNNING -> armScheduler(stateHolder.state.value.blockStartRealtime, recovery = false)
+                    RunPhase.RECOVERY -> startRecoveryTimer(stateHolder.state.value.blockStartRealtime)
+                    else -> Unit
+                }
+            }
+        }
+    }
+
+    /** The start of a rep is a cue too: the "go" of the session, or of a manual Go. */
+    private fun startCue() {
+        if (settings.soundEnabled) beeper.play(SplitEvent.Kind.LAP)
+        if (settings.vibrationEnabled) haptics.play(SplitEvent.Kind.LAP)
+    }
+
+    private fun startRep(number: Int, cue: Boolean = true) {
+        if (cue) startCue()
         if (!foregroundStarted) promoteToForeground() // permissions may have been granted since
         val start = SystemClock.elapsedRealtime()
         stateHolder.update {
@@ -158,8 +191,8 @@ class PacerService : LifecycleService() {
         }
     }
 
-    /** Close the recovery and launch the next paced rep. */
-    private fun go() {
+    /** Close the recovery and launch the next paced rep. An automatic start already beeped. */
+    private fun go(cue: Boolean = true) {
         val now = SystemClock.elapsedRealtime()
         val state = stateHolder.state.value
         val recovery = when {
@@ -170,7 +203,7 @@ class PacerService : LifecycleService() {
         stateHolder.update {
             it.copy(completedBlocks = it.completedBlocks + Block(it.repNumber, recovery, settings.secondsPerKm, isRecovery = true))
         }
-        startRep(state.repNumber + 1)
+        startRep(state.repNumber + 1, cue = cue)
     }
 
     private fun pause() {
@@ -204,6 +237,8 @@ class PacerService : LifecycleService() {
             endRep() // records the rep; the recovery it opens is discarded below
         }
         disarmScheduler()
+        settingsJob?.cancel()
+        settingsJob = null
         stateHolder.update { it.copy(phase = RunPhase.FINISHED, heartRateBpm = null) }
         volumeBoost.restore()
         lifecycleScope.launch {
@@ -280,7 +315,7 @@ class PacerService : LifecycleService() {
         stateHolder.update {
             it.copy(lastMark = MarkHit(event.markMeters, event.kind == SplitEvent.Kind.LAP, now))
         }
-        if (recovery && settings.autoStart) lifecycleScope.launch { go() }
+        if (recovery && settings.autoStart) lifecycleScope.launch { go(cue = false) }
         if (event.kind == SplitEvent.Kind.REP_END && settings.autoRecovery) lifecycleScope.launch { endRep() }
     }
 

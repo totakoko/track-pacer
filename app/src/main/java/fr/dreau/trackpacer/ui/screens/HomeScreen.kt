@@ -5,17 +5,16 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.HourglassBottom
-import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Straighten
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -25,24 +24,29 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.wear.compose.foundation.pager.HorizontalPager
+import androidx.wear.compose.foundation.pager.rememberPagerState
+import androidx.wear.compose.material3.AnimatedPage
 import androidx.wear.compose.material3.ButtonDefaults
-import androidx.wear.compose.material3.EdgeButton
 import androidx.wear.compose.material3.FilledTonalButton
+import androidx.wear.compose.material3.HorizontalPagerScaffold
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.Text
 import fr.dreau.trackpacer.R
 import fr.dreau.trackpacer.domain.PaceMath
+import fr.dreau.trackpacer.domain.PaceSettings
 import fr.dreau.trackpacer.service.Permissions
 import fr.dreau.trackpacer.ui.RunViewModel
 import fr.dreau.trackpacer.ui.SettingsViewModel
 
 /**
- * The session as one sentence, every number a chip that opens its picker:
+ * Two pages: the session as one sentence, every number a chip that opens its picker,
+ * and the settings list a swipe to the left.
  *
  *     [400 m] à [4:45]
- *     ⟷ [100 m]   ⌛ [1:00]
+ *     ⟷ [100 m]  ⌛ [1:00]
  */
 @Composable
 fun HomeScreen(
@@ -52,12 +56,12 @@ fun HomeScreen(
     onEditInterval: () -> Unit,
     onEditRep: () -> Unit,
     onEditRecovery: () -> Unit,
-    onOpenSettings: () -> Unit,
     onRun: () -> Unit,
 ) {
     val settings by settingsViewModel.settings.collectAsStateWithLifecycle()
     val runState by runViewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val pagerState = rememberPagerState { 2 }
 
     fun launchSession() {
         runViewModel.startSession()
@@ -74,13 +78,42 @@ fun HomeScreen(
         if (missing.isEmpty()) launchSession() else permissionLauncher.launch(missing)
     }
 
+    HorizontalPagerScaffold(pagerState = pagerState) {
+        HorizontalPager(state = pagerState) { page ->
+            AnimatedPage(pageIndex = page, pagerState = pagerState) {
+                when (page) {
+                    0 -> SentencePage(
+                        settings = settings,
+                        sessionActive = runState.isActive,
+                        onEditPace = onEditPace, onEditInterval = onEditInterval,
+                        onEditRep = onEditRep, onEditRecovery = onEditRecovery,
+                        onStart = onStart, onRun = onRun,
+                    )
+                    else -> SettingsScreen(viewModel = settingsViewModel)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SentencePage(
+    settings: PaceSettings,
+    sessionActive: Boolean,
+    onEditPace: () -> Unit,
+    onEditInterval: () -> Unit,
+    onEditRep: () -> Unit,
+    onEditRecovery: () -> Unit,
+    onStart: () -> Unit,
+    onRun: () -> Unit,
+) {
     ScreenScaffold { contentPadding ->
         Box(modifier = Modifier.fillMaxSize()) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    // Between the time text and the edge button (46 dp) plus a margin.
-                    .padding(top = contentPadding.calculateTopPadding(), bottom = 62.dp),
+                    // Clear of the time text and of the round edge at the top; room for the pill below.
+                    .padding(top = contentPadding.calculateTopPadding() + 10.dp, bottom = ACTION_PILL_SPACE),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
@@ -92,7 +125,7 @@ fun HomeScreen(
                     Text(
                         stringResource(R.string.at_pace),
                         style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(horizontal = 8.dp),
+                        modifier = Modifier.padding(horizontal = 5.dp),
                     )
                     Chip(text = PaceMath.formatPace(settings.secondsPerKm), onClick = onEditPace)
                 }
@@ -104,43 +137,27 @@ fun HomeScreen(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(16.dp),
                     )
-                    Spacer(Modifier.width(3.dp))
+                    Spacer(Modifier.width(2.dp))
                     Chip(text = PaceMath.formatInterval(settings.intervalMeters), onClick = onEditInterval)
-                    Spacer(Modifier.width(10.dp))
+                    Spacer(Modifier.width(6.dp))
                     Icon(
                         Icons.Rounded.HourglassBottom,
                         contentDescription = stringResource(R.string.recovery_setting),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(16.dp),
                     )
-                    Spacer(Modifier.width(3.dp))
+                    Spacer(Modifier.width(2.dp))
                     Chip(
                         text = if (settings.isTimedRecovery) PaceMath.formatDuration(settings.recoverySeconds) else stringResource(R.string.rep_free),
                         onClick = onEditRecovery,
                     )
                 }
-                Spacer(Modifier.height(8.dp))
-                FilledTonalButton(
-                    onClick = onOpenSettings,
-                    modifier = Modifier.height(30.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(),
-                    border = ButtonDefaults.outlinedButtonBorder(enabled = true),
-                ) {
-                    Icon(Icons.Rounded.Settings, contentDescription = null, modifier = Modifier.size(14.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.settings), style = MaterialTheme.typography.labelMedium, maxLines = 1)
-                }
             }
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-                if (runState.isActive) {
-                    EdgeButton(onClick = onRun, colors = ButtonDefaults.filledTonalButtonColors()) {
-                        Text(stringResource(R.string.resume_session), maxLines = 1)
-                    }
+            Box(modifier = Modifier.fillMaxSize().padding(bottom = ACTION_PILL_MARGIN), contentAlignment = Alignment.BottomCenter) {
+                if (sessionActive) {
+                    ActionPill(stringResource(R.string.resume_session), onClick = onRun, colors = ButtonDefaults.filledTonalButtonColors())
                 } else {
-                    EdgeButton(onClick = onStart) {
-                        Text(stringResource(R.string.start), maxLines = 1)
-                    }
+                    ActionPill(stringResource(R.string.start), onClick = onStart)
                 }
             }
         }

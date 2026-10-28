@@ -14,7 +14,6 @@ import fr.dreau.trackpacer.ui.screens.PaceScreen
 import fr.dreau.trackpacer.ui.screens.RecoveryScreen
 import fr.dreau.trackpacer.ui.screens.RepDistanceScreen
 import fr.dreau.trackpacer.ui.screens.RunScreen
-import fr.dreau.trackpacer.ui.screens.SettingsScreen
 import fr.dreau.trackpacer.ui.screens.SummaryScreen
 
 object Routes {
@@ -23,7 +22,6 @@ object Routes {
     const val INTERVAL = "interval"
     const val REP = "rep"
     const val RECOVERY = "recovery"
-    const val SETTINGS = "settings"
     const val RUN = "run"
     const val SUMMARY = "summary"
 }
@@ -51,7 +49,6 @@ fun PacerNavHost() {
                     onEditInterval = { navController.navigate(Routes.INTERVAL) },
                     onEditRep = { navController.navigate(Routes.REP) },
                     onEditRecovery = { navController.navigate(Routes.RECOVERY) },
-                    onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                     onRun = { navController.navigate(Routes.RUN) },
                 )
             }
@@ -67,12 +64,10 @@ fun PacerNavHost() {
             composable(Routes.RECOVERY) {
                 RecoveryScreen(viewModel = settingsViewModel, onDone = { navController.popBackStack() })
             }
-            composable(Routes.SETTINGS) {
-                SettingsScreen(viewModel = settingsViewModel)
-            }
             composable(Routes.RUN) {
                 RunScreen(
                     viewModel = runViewModel,
+                    settingsViewModel = settingsViewModel,
                     onFinished = {
                         navController.navigate(Routes.SUMMARY) {
                             popUpTo(Routes.HOME) { inclusive = false }

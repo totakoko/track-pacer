@@ -9,16 +9,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -41,9 +36,7 @@ import androidx.wear.compose.material3.AnimatedPage
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.CircularProgressIndicator
-import androidx.wear.compose.material3.EdgeButton
 import androidx.wear.compose.material3.HorizontalPagerScaffold
-import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ProgressIndicatorDefaults
 import androidx.wear.compose.material3.ScreenScaffold
@@ -55,6 +48,7 @@ import fr.dreau.trackpacer.domain.RunPhase
 import fr.dreau.trackpacer.domain.RunState
 import fr.dreau.trackpacer.ui.LocalAmbientMode
 import fr.dreau.trackpacer.ui.RunViewModel
+import fr.dreau.trackpacer.ui.SettingsViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 
@@ -66,14 +60,15 @@ private const val AMBIENT_TICK_MS = 1_000L
 
 private const val CONTROLS_PAGE = 0
 private const val METRICS_PAGE = 1
+private const val SETTINGS_PAGE = 2
 
 /**
- * The session screen, two pages wide. The numbers page (right) carries one edge button for
- * the action you need at the line: Recovery, Go, or Resume. Nothing else on it reacts to
- * touch. The controls page, a swipe to the right, holds Pause / Resume and Finish.
+ * The session screen, three pages wide. The numbers page (middle) carries one pill for the
+ * action you need at the line: Recovery, Go, or Resume. Nothing else on it reacts to touch.
+ * Controls (Pause / Resume, Finish) are a swipe to the right; settings a swipe to the left.
  */
 @Composable
-fun RunScreen(viewModel: RunViewModel, onFinished: () -> Unit) {
+fun RunScreen(viewModel: RunViewModel, settingsViewModel: SettingsViewModel, onFinished: () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val ambient = LocalAmbientMode.current
     val settings = state.settings
@@ -105,7 +100,7 @@ fun RunScreen(viewModel: RunViewModel, onFinished: () -> Unit) {
         flash.animateTo(0f, tween(durationMillis = 700))
     }
 
-    val pagerState = rememberPagerState(initialPage = METRICS_PAGE) { 2 }
+    val pagerState = rememberPagerState(initialPage = METRICS_PAGE) { 3 }
     // After a control tap the phase changes: bring the numbers back without a swipe.
     LaunchedEffect(state.phase) {
         if (pagerState.currentPage != METRICS_PAGE) pagerState.animateScrollToPage(METRICS_PAGE)
@@ -124,10 +119,11 @@ fun RunScreen(viewModel: RunViewModel, onFinished: () -> Unit) {
                         state, now, flash.value, ambient = false,
                         onEndRep = viewModel::endRep, onGo = viewModel::go, onResume = viewModel::resume,
                     )
-                    else -> ControlsPage(
+                    CONTROLS_PAGE -> ControlsPage(
                         state.phase,
                         onPause = viewModel::pause, onResume = viewModel::resume, onFinish = viewModel::finishSession,
                     )
+                    else -> SettingsScreen(viewModel = settingsViewModel)
                 }
             }
         }
@@ -186,38 +182,34 @@ private fun MetricsPage(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    // Below the time text, above the small edge button (46 dp) and a margin.
-                    .padding(top = contentPadding.calculateTopPadding() + 10.dp, bottom = if (ambient) 0.dp else 62.dp)
+                    // Below the time text, above the action pill and its margin.
+                    .padding(top = contentPadding.calculateTopPadding() + 6.dp, bottom = if (ambient) 0.dp else ACTION_PILL_SPACE)
                     .padding(horizontal = 18.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
-                // 1. What is coming.
+                // 1. Status, only when there is one: in a plain rep the chrono comes first.
                 val header = when {
                     repDue -> stringResource(R.string.rep_due)
-                    running -> stringResource(
-                        R.string.next_mark,
-                        PaceMath.formatInterval(PaceMath.nextMarkMeters(elapsed, settings)),
-                        countdownText(msToNext),
-                    )
                     recovery -> stringResource(R.string.recovery).uppercase()
                     paused -> stringResource(R.string.paused).uppercase()
-                    else -> ""
+                    else -> null
                 }
-                Text(
-                    text = header,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = when {
-                        ambient -> white
-                        imminent || repDue -> MaterialTheme.colorScheme.tertiary
-                        recovery -> MaterialTheme.colorScheme.secondary
-                        paused -> MaterialTheme.colorScheme.onSurfaceVariant
-                        else -> MaterialTheme.colorScheme.primary
-                    },
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                )
+                if (header != null) {
+                    Text(
+                        text = header,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = when {
+                            ambient -> white
+                            repDue -> MaterialTheme.colorScheme.tertiary
+                            recovery -> MaterialTheme.colorScheme.secondary
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                    )
+                }
 
                 // 2. The big number: chrono in a rep, countdown in a timed recovery.
                 val main = when {
@@ -239,27 +231,36 @@ private fun MetricsPage(
                     }
                     else -> null
                 }
-                if (context != null) {
+                // Heart rate rides on the same line: a fifth row would not fit above the pill.
+                val heart = if (settings.showHeartRate && !ambient) " · \u2665 " + (state.heartRateBpm?.toString() ?: "--") else ""
+                if (context != null || heart.isNotEmpty()) {
                     Text(
-                        text = context,
+                        text = (context ?: "") + heart,
                         style = MaterialTheme.typography.titleLarge,
                         color = if (ambient) white else MaterialTheme.colorScheme.onBackground,
                         maxLines = 1,
                     )
                 }
 
-                if (settings.showHeartRate && !ambient) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Rounded.Favorite,
-                            contentDescription = stringResource(R.string.heart_rate),
-                            tint = MaterialTheme.colorScheme.tertiary,
-                            modifier = Modifier.size(13.dp),
-                        )
-                        Spacer(Modifier.width(3.dp))
-                        Text(text = state.heartRateBpm?.toString() ?: "--", style = MaterialTheme.typography.labelMedium)
-                    }
+                // 4. What is coming, right under the distance: "16 s → 100 m".
+                if (running && !repDue) {
+                    Text(
+                        text = stringResource(
+                            R.string.next_cue,
+                            countdownText(msToNext),
+                            PaceMath.formatInterval(PaceMath.nextMarkMeters(elapsed, settings)),
+                        ),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = when {
+                            ambient -> white
+                            imminent -> MaterialTheme.colorScheme.tertiary
+                            else -> MaterialTheme.colorScheme.primary
+                        },
+                        maxLines = 1,
+                    )
                 }
+
                 if (state.degraded && !ambient) {
                     Text(
                         text = stringResource(R.string.degraded_hint),
@@ -272,7 +273,7 @@ private fun MetricsPage(
             }
 
             if (!ambient && state.isActive) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+                Box(modifier = Modifier.fillMaxSize().padding(bottom = ACTION_PILL_MARGIN), contentAlignment = Alignment.BottomCenter) {
                     PrimaryAction(running, recovery, onEndRep, onGo, onResume)
                 }
             }
@@ -284,21 +285,16 @@ private fun MetricsPage(
 @Composable
 private fun PrimaryAction(running: Boolean, recovery: Boolean, onEndRep: () -> Unit, onGo: () -> Unit, onResume: () -> Unit) {
     when {
-        running -> EdgeButton(
+        running -> ActionPill(
+            stringResource(R.string.end_rep),
             onClick = onEndRep,
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                 contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
             ),
-        ) {
-            Text(stringResource(R.string.end_rep), maxLines = 1)
-        }
-        recovery -> EdgeButton(onClick = onGo) {
-            Text(stringResource(R.string.go), maxLines = 1)
-        }
-        else -> EdgeButton(onClick = onResume, colors = ButtonDefaults.filledTonalButtonColors()) {
-            Text(stringResource(R.string.resume), maxLines = 1)
-        }
+        )
+        recovery -> ActionPill(stringResource(R.string.go), onClick = onGo)
+        else -> ActionPill(stringResource(R.string.resume_short), onClick = onResume, colors = ButtonDefaults.filledTonalButtonColors())
     }
 }
 
