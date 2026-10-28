@@ -29,16 +29,21 @@ fois. Avant de rendre la main :
    élément d'une colonne doit être sous l'heure et dégagé du bord (marge en haut) ; aucun texte
    en deux lignes ni en « … » (`maxLines = 1`, raccourcir le libellé plutôt que le laisser couper).
 3. Une seule taille de bouton par écran. Unités collées aux nombres (`400m`, `21s`, `3:53`).
-4. Pendant un pilotage adb, **balayer horizontalement à y = 60** (zone de l'heure), jamais au
-   milieu : un balayage qui part d'un interrupteur le bascule. Après toute session de pilotage,
-   recapturer la page des réglages et comparer avec l'état initial.
+4. Pendant un pilotage adb, **balayer horizontalement à y = 100** (sous l'heure ; à y = 60 le
+   point x = 40 est hors du cercle et le geste est ignoré), jamais au milieu : un balayage qui
+   part d'un interrupteur le bascule. Après toute session de pilotage, recapturer la page des
+   réglages et comparer avec l'état initial. Un tap « à l'aveugle » qui rate sa cible peut
+   atterrir sur le cadran ou dans les réglages système : capturer avant de taper, et vérifier
+   `dumpsys window | grep mCurrentFocus` après chaque chaîne.
 5. Si le délai d'extinction a été allongé (`settings put system screen_off_timeout 600000`),
    le remettre à `30000`.
 
 ## Comportements à ne pas casser
 
 - Aucun geste « n'importe où » sur l'écran de course : seules les pastilles et les pages
-  (contrôles à gauche, réglages à droite) agissent.
+  (contrôles à gauche, réglages à droite) agissent. Le thème désactive
+  `android:windowSwipeToDismiss` : sans ça, un balayage vers la droite depuis la page de
+  contrôles fermait l'application.
 - Les transitions rép → récup → rép sont manuelles ; les options « Récup auto » et « Départ
   auto » restent facultatives.
 - Énergie : le service ne tient le CPU qu'autour des bips (alarme exacte sinon) ; l'activité

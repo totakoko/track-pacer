@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        The platform's own edge swipe would close the activity: a swipe to the right on the
+        run screen's controls page (the leftmost page) threw the runner out to the watch face.
+        Navigation handles dismissal itself (SwipeDismissableNavHost); the side button exits.
+    -->
+    <style name="Theme.TrackPacer" parent="@android:style/Theme.DeviceDefault">
+        <item name="android:windowSwipeToDismiss">false</item>
+    </style>
+</resources>
