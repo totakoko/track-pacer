@@ -54,9 +54,10 @@ data class PaceSettings(
         const val INTERVAL_STEP_METERS = 50
         const val MIN_INTERVAL_METERS = 50
         const val MAX_INTERVAL_METERS = 1_000
-        /** Rep distance picker: 0 to 99 km, in 100 m steps. */
-        const val MAX_REP_KM = 99
-        const val REP_STEP_METERS = 100
+        /** Rep distance picker: 0 (free), then steps that grow with the distance, up to 99 km. */
+        val REP_DISTANCE_CHOICES: List<Int> = listOf(0) +
+            (50..200 step 50) + (300..3_000 step 100) + (3_200..5_000 step 200) +
+            (5_500..10_000 step 500) + (11_000..99_000 step 1_000)
         const val MAX_RECOVERY_MINUTES = 30
         const val MIN_SECONDS_PER_KM = 2 * 60      // 2:00/km
         const val MAX_SECONDS_PER_KM = 12 * 60 + 59 // 12:59/km

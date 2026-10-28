@@ -12,7 +12,7 @@
     <string name="metres">Metres</string>
     <string name="confirm">Confirm</string>
     <string name="marks">Cues</string>
-    <string name="rep_setting">Rep</string>
+    <string name="rep_setting">Distance</string>
     <string name="rep_free">Free</string>
     <string name="rep_free_hint">Ends on your press</string>
     <string name="recovery_setting">Recovery</string>
@@ -30,8 +30,8 @@
     <string name="auto_recovery_hint">At the due time</string>
     <string name="show_heart_rate">Heart rate</string>
     <string name="show_heart_rate_hint">Drains battery</string>
-    <string name="show_distance">Distance</string>
-    <string name="show_distance_hint">Theoretical</string>
+    <string name="show_distance">Estimate</string>
+    <string name="show_distance_hint">Theoretical distance</string>
     <string name="keep_screen_on">Keep screen on</string>
     <string name="keep_screen_on_hint">Drains the battery</string>
     <string name="next_cue">%1$s → %2$s</string>

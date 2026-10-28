@@ -116,10 +116,10 @@ object PaceMath {
         return if (seconds >= 60) formatChrono(seconds * 1000, tenths = false) else seconds.toString()
     }
 
-    /** "+1.9 s" / "−0.8 s": actual minus target, tenths. */
+    /** "+1.9s" / "−0.8s": actual minus target, tenths. */
     fun formatDelta(deltaMs: Long): String {
         val sign = if (deltaMs < 0) "−" else "+"
-        return String.format(Locale.ROOT, "%s%.1f s", sign, abs(deltaMs) / 1000.0)
+        return String.format(Locale.ROOT, "%s%.1fs", sign, abs(deltaMs) / 1000.0)
     }
 
     /**
@@ -127,14 +127,14 @@ object PaceMath {
      * Track sessions keep metres up to 10 km; road sessions switch at 1 km.
      */
     fun formatDistance(meters: Double, kmFromMeters: Int = 10_000): String =
-        if (meters >= kmFromMeters) String.format(Locale.ROOT, "%.2f km", meters / 1000)
-        else String.format(Locale.ROOT, "%d m", meters.toInt())
+        if (meters >= kmFromMeters) String.format(Locale.ROOT, "%.2fkm", meters / 1000)
+        else String.format(Locale.ROOT, "%dm", meters.toInt())
 
-    /** "100 m", "1 km", "1.5 km", "12.3 km" for the pickers and the sentence. */
+    /** "100m", "1km", "1.5km", "12.3km" for the pickers and the sentence. Units are glued to save width. */
     fun formatInterval(meters: Int): String = when {
-        meters < 1000 -> "$meters m"
-        meters % 1000 == 0 -> "${meters / 1000} km"
-        else -> String.format(Locale.ROOT, "%.1f km", meters / 1000.0)
+        meters < 1000 -> "${meters}m"
+        meters % 1000 == 0 -> "${meters / 1000}km"
+        else -> String.format(Locale.ROOT, "%.1fkm", meters / 1000.0)
     }
 
     /** "1:30" for the duration pickers; the caller handles 0 ("free"). */

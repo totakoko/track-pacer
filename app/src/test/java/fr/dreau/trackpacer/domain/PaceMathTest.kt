@@ -103,8 +103,8 @@ class PaceMathTest {
     fun block_deltaAgainstTarget() {
         val rep = Block(1, 95_100L, 285, targetMs = 93_200L)
         assertEquals(1_900L, rep.deltaMs)
-        assertEquals("+1.9 s", PaceMath.formatDelta(rep.deltaMs!!))
-        assertEquals("−0.8 s", PaceMath.formatDelta(-800L))
+        assertEquals("+1.9s", PaceMath.formatDelta(rep.deltaMs!!))
+        assertEquals("−0.8s", PaceMath.formatDelta(-800L))
         assertNull(Block(1, 95_100L, 285).deltaMs)
     }
 
@@ -120,17 +120,28 @@ class PaceMathTest {
         assertEquals("10:05", PaceMath.formatPace(605))
         assertEquals("02:14.3", PaceMath.formatChrono(134_350L, tenths = true))
         assertEquals("02:14", PaceMath.formatChrono(134_350L, tenths = false))
-        assertEquals("350 m", PaceMath.formatDistance(350.7))
-        assertEquals("10.50 km", PaceMath.formatDistance(10_500.0))
-        assertEquals("1.25 km", PaceMath.formatDistance(1_250.0, kmFromMeters = 1_000))
-        assertEquals("1 km", PaceMath.formatInterval(1_000))
-        assertEquals("1.5 km", PaceMath.formatInterval(1_500))
-        assertEquals("21.1 km", PaceMath.formatInterval(21_100))
-        assertEquals("500 m", PaceMath.formatInterval(500))
+        assertEquals("350m", PaceMath.formatDistance(350.7))
+        assertEquals("10.50km", PaceMath.formatDistance(10_500.0))
+        assertEquals("1.25km", PaceMath.formatDistance(1_250.0, kmFromMeters = 1_000))
+        assertEquals("1km", PaceMath.formatInterval(1_000))
+        assertEquals("1.5km", PaceMath.formatInterval(1_500))
+        assertEquals("21.1km", PaceMath.formatInterval(21_100))
+        assertEquals("500m", PaceMath.formatInterval(500))
         assertEquals("1", PaceMath.formatCountdown(1L))
         assertEquals("42", PaceMath.formatCountdown(41_300L))
         assertEquals("05:30", PaceMath.formatCountdown(329_001L))
         assertEquals("1:30", PaceMath.formatDuration(90))
+    }
+
+    @Test
+    fun repDistanceChoices_growTheirStepWithTheDistance() {
+        val c = PaceSettings.REP_DISTANCE_CHOICES
+        assertEquals(listOf(0, 50, 100, 150, 200, 300), c.take(6))
+        assertTrue(3_000 in c && 3_200 in c && 3_100 !in c)
+        assertTrue(5_000 in c && 5_500 in c && 5_200 !in c)
+        assertTrue(10_000 in c && 11_000 in c && 10_500 !in c)
+        assertEquals(99_000, c.last())
+        assertEquals(c.sorted(), c)
     }
 
     @Test

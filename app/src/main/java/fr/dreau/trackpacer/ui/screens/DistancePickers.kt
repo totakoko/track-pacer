@@ -52,49 +52,38 @@ fun IntervalScreen(viewModel: SettingsViewModel, onDone: () -> Unit) {
             onDone()
         },
     ) {
-        Picker(state = state, contentDescription = { label }, modifier = Modifier.width(110.dp).height(100.dp)) { index ->
+        Picker(state = state, contentDescription = { label }, modifier = Modifier.width(130.dp).height(100.dp)) { index ->
             WheelOption(PaceMath.formatInterval(PaceSettings.MIN_INTERVAL_METERS + index * step))
         }
     }
 }
 
-/** Rep distance: kilometres and hundreds of metres, up to 99.9 km; 0 means a free rep. */
+/** Rep distance: one wheel over steps that grow with the distance; the first entry is a free rep. */
 @Composable
 fun RepDistanceScreen(viewModel: SettingsViewModel, onDone: () -> Unit) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
-    val initial = remember { settings.repMeters.coerceIn(0, PaceSettings.MAX_REP_KM * 1000 + 900) }
-    val kmState = rememberPickerState(
-        initialNumberOfOptions = PaceSettings.MAX_REP_KM + 1,
-        initiallySelectedIndex = initial / 1000,
-        shouldRepeatOptions = false,
-    )
-    val hmState = rememberPickerState(
-        initialNumberOfOptions = 1000 / PaceSettings.REP_STEP_METERS,
-        initiallySelectedIndex = (initial % 1000) / PaceSettings.REP_STEP_METERS,
-    )
-    val kmLabel = stringResource(R.string.kilometres)
-    val mLabel = stringResource(R.string.metres)
+    val choices = PaceSettings.REP_DISTANCE_CHOICES
+    val initial = remember {
+        choices.indexOf(settings.repMeters).takeIf { it >= 0 }
+            ?: choices.indexOfLast { it <= settings.repMeters }.coerceAtLeast(0)
+    }
+    val state = rememberPickerState(initialNumberOfOptions = choices.size, initiallySelectedIndex = initial, shouldRepeatOptions = false)
+    val label = stringResource(R.string.rep_setting)
+    val free = stringResource(R.string.rep_free)
+    val meters = choices[state.selectedOptionIndex]
 
-    fun selectedMeters(): Int = kmState.selectedOptionIndex * 1000 + hmState.selectedOptionIndex * PaceSettings.REP_STEP_METERS
-
-    val meters = selectedMeters()
     PickerScaffold(
-        title = stringResource(R.string.rep_setting),
+        title = label,
         hint = if (meters == 0) stringResource(R.string.rep_free_hint)
         else PaceMath.formatChrono(meters.toLong() * settings.secondsPerKm, tenths = true),
         onConfirm = {
-            viewModel.setRepMeters(selectedMeters())
+            viewModel.setRepMeters(choices[state.selectedOptionIndex])
             onDone()
         },
     ) {
-        Picker(state = kmState, contentDescription = { kmLabel }, modifier = Modifier.width(52.dp).height(100.dp)) { index ->
-            WheelOption(index.toString())
+        Picker(state = state, contentDescription = { label }, modifier = Modifier.width(130.dp).height(100.dp)) { index ->
+            WheelOption(if (choices[index] == 0) free else PaceMath.formatInterval(choices[index]))
         }
-        Text("km", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 4.dp))
-        Picker(state = hmState, contentDescription = { mLabel }, modifier = Modifier.width(68.dp).height(100.dp)) { index ->
-            WheelOption((index * PaceSettings.REP_STEP_METERS).toString())
-        }
-        Text("m", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(start = 4.dp))
     }
 }
 
@@ -120,9 +109,10 @@ internal fun PickerScaffold(title: String, hint: String, onConfirm: () -> Unit, 
     }
 }
 
+/** Distances carry a unit, so they use a smaller numeral than the time wheels to stay on one line. */
 @Composable
-internal fun WheelOption(text: String) {
+internal fun WheelOption(text: String, small: Boolean = text.any { it.isLetter() }) {
     Box(contentAlignment = Alignment.Center) {
-        Text(text, style = MaterialTheme.typography.numeralMedium)
+        Text(text, style = if (small) MaterialTheme.typography.numeralSmall else MaterialTheme.typography.numeralMedium, maxLines = 1)
     }
 }

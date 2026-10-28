@@ -12,7 +12,7 @@
     <string name="metres">Mètres</string>
     <string name="confirm">Valider</string>
     <string name="marks">Rappels</string>
-    <string name="rep_setting">Répétition</string>
+    <string name="rep_setting">Distance</string>
     <string name="rep_free">Libre</string>
     <string name="rep_free_hint">Fin sur appui</string>
     <string name="recovery_setting">Récup</string>
@@ -30,8 +30,8 @@
     <string name="auto_recovery_hint">Au temps cible</string>
     <string name="show_heart_rate">Cardio</string>
     <string name="show_heart_rate_hint">Consomme</string>
-    <string name="show_distance">Distance</string>
-    <string name="show_distance_hint">Théorique</string>
+    <string name="show_distance">Estimation</string>
+    <string name="show_distance_hint">Distance théorique</string>
     <string name="keep_screen_on">Écran allumé</string>
     <string name="keep_screen_on_hint">Vide la batterie</string>
     <string name="next_cue">%1$s → %2$s</string>

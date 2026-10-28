@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -107,7 +109,7 @@ fun RunScreen(viewModel: RunViewModel, settingsViewModel: SettingsViewModel, onF
     }
 
     if (ambient) {
-        MetricsPage(state, now, flash.value, ambient = true, onEndRep = {}, onGo = {}, onResume = {})
+        MetricsPage(state, { now }, flash.value, ambient = true, onEndRep = {}, onGo = {}, onResume = {})
         return
     }
 
@@ -116,7 +118,7 @@ fun RunScreen(viewModel: RunViewModel, settingsViewModel: SettingsViewModel, onF
             AnimatedPage(pageIndex = page, pagerState = pagerState) {
                 when (page) {
                     METRICS_PAGE -> MetricsPage(
-                        state, now, flash.value, ambient = false,
+                        state, { now }, flash.value, ambient = false,
                         onEndRep = viewModel::endRep, onGo = viewModel::go, onResume = viewModel::resume,
                     )
                     CONTROLS_PAGE -> ControlsPage(
@@ -130,10 +132,14 @@ fun RunScreen(viewModel: RunViewModel, settingsViewModel: SettingsViewModel, onF
     }
 }
 
+/**
+ * [clock] is a lambda over the live clock state rather than a plain value: the progress ring
+ * reads its progress in the draw phase and only redraws when a state it read changes.
+ */
 @Composable
 private fun MetricsPage(
     state: RunState,
-    now: Long,
+    clock: () -> Long,
     flashAlpha: Float,
     ambient: Boolean,
     onEndRep: () -> Unit,
@@ -141,6 +147,7 @@ private fun MetricsPage(
     onResume: () -> Unit,
 ) {
     val settings = state.settings
+    val now = clock()
     val elapsed = state.elapsedMs(now)
     val running = state.phase == RunPhase.RUNNING
     val recovery = state.phase == RunPhase.RECOVERY
@@ -150,7 +157,10 @@ private fun MetricsPage(
     val msToNext = PaceMath.msToNextMark(elapsed, settings)
     val repDue = inRep && settings.hasRepDistance && elapsed >= settings.repEndMs
     val imminent = running && !repDue && msToNext <= IMMINENT_MS
-    val progress = if (running && !repDue) PaceMath.progressInSplit(elapsed, settings.splitMs) else 0f
+    val progress: () -> Float = {
+        val e = state.elapsedMs(clock())
+        if (running && (!settings.hasRepDistance || e < settings.repEndMs)) PaceMath.progressInSplit(e, settings.splitMs) else 0f
+    }
     val timedRecovery = inRecovery && settings.isTimedRecovery
     val recoveryLeft = settings.recoveryMs - elapsed
     val overdue = timedRecovery && recoveryLeft <= 0
@@ -166,7 +176,7 @@ private fun MetricsPage(
         Box(modifier = Modifier.fillMaxSize()) {
             if (!ambient && running) {
                 CircularProgressIndicator(
-                    progress = { progress },
+                    progress = progress,
                     modifier = Modifier.fillMaxSize(),
                     colors = ProgressIndicatorDefaults.colors(
                         indicatorColor = if (imminent) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
@@ -231,8 +241,9 @@ private fun MetricsPage(
                     }
                     else -> null
                 }
-                // Heart rate rides on the same line: a fifth row would not fit above the pill.
-                val heart = if (settings.showHeartRate && !ambient) " · \u2665 " + (state.heartRateBpm?.toString() ?: "--") else ""
+                // Heart rate rides on the rep's distance line: a fifth row would not fit above the pill.
+                // U+FE0E keeps the heart a plain text glyph instead of a large colour emoji.
+                val heart = if (settings.showHeartRate && !ambient && inRep) " · \u2665\uFE0E " + (state.heartRateBpm?.toString() ?: "--") else ""
                 if (context != null || heart.isNotEmpty()) {
                     Text(
                         text = (context ?: "") + heart,
@@ -274,7 +285,7 @@ private fun MetricsPage(
 
             if (!ambient && state.isActive) {
                 Box(modifier = Modifier.fillMaxSize().padding(bottom = ACTION_PILL_MARGIN), contentAlignment = Alignment.BottomCenter) {
-                    PrimaryAction(running, recovery, onEndRep, onGo, onResume)
+                    PrimaryAction(running, recovery, settings.autoStart && settings.isTimedRecovery, onEndRep, onGo, onResume)
                 }
             }
         }
@@ -283,7 +294,14 @@ private fun MetricsPage(
 
 /** The single control on the numbers page: end the rep, start the next one, or resume. */
 @Composable
-private fun PrimaryAction(running: Boolean, recovery: Boolean, onEndRep: () -> Unit, onGo: () -> Unit, onResume: () -> Unit) {
+private fun PrimaryAction(
+    running: Boolean,
+    recovery: Boolean,
+    autoStart: Boolean,
+    onEndRep: () -> Unit,
+    onGo: () -> Unit,
+    onResume: () -> Unit,
+) {
     when {
         running -> ActionPill(
             stringResource(R.string.end_rep),
@@ -293,7 +311,12 @@ private fun PrimaryAction(running: Boolean, recovery: Boolean, onEndRep: () -> U
                 contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
             ),
         )
-        recovery -> ActionPill(stringResource(R.string.go), onClick = onGo)
+        recovery -> ActionPill(
+            stringResource(R.string.go),
+            onClick = onGo,
+            // The clock icon says: this will start by itself when the countdown ends.
+            icon = if (autoStart) Icons.Rounded.Timer else null,
+        )
         else -> ActionPill(stringResource(R.string.resume_short), onClick = onResume, colors = ButtonDefaults.filledTonalButtonColors())
     }
 }
@@ -303,7 +326,7 @@ private fun PrimaryAction(running: Boolean, recovery: Boolean, onEndRep: () -> U
 private fun distanceLine(elapsedMs: Long, settings: PaceSettings): String {
     val meters = PaceMath.theoreticalDistanceMeters(elapsedMs, settings.secondsPerKm)
     return if (settings.hasRepDistance && settings.repMeters < 1_000 && !settings.isRoadInterval) {
-        "${meters.toInt().coerceAtMost(settings.repMeters)} / ${settings.repMeters} m"
+        "${meters.toInt().coerceAtMost(settings.repMeters)} / ${settings.repMeters}m"
     } else if (settings.hasRepDistance) {
         distanceText(elapsedMs, settings) + " / " + PaceMath.formatInterval(settings.repMeters)
     } else {
@@ -321,7 +344,7 @@ private fun distanceText(elapsedMs: Long, settings: PaceSettings): String =
 @Composable
 private fun countdownText(ms: Long): String {
     val value = PaceMath.formatCountdown(ms)
-    return if (ms < 60_000) "$value s" else value
+    return if (ms < 60_000) "${value}s" else value
 }
 
 /** Left page: the rare actions, out of reach of an accidental tap. */
