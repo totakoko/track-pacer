@@ -6,26 +6,19 @@ import android.view.WindowManager
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.Flag
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Replay
-import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -33,7 +26,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -43,18 +35,24 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.wear.compose.foundation.pager.HorizontalPager
+import androidx.wear.compose.foundation.pager.rememberPagerState
+import androidx.wear.compose.material3.AnimatedPage
+import androidx.wear.compose.material3.Button
+import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.CircularProgressIndicator
-import androidx.wear.compose.material3.FilledIconButton
-import androidx.wear.compose.material3.FilledTonalIconButton
+import androidx.wear.compose.material3.EdgeButton
+import androidx.wear.compose.material3.HorizontalPagerScaffold
 import androidx.wear.compose.material3.Icon
-import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ProgressIndicatorDefaults
 import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.Text
 import fr.dreau.trackpacer.R
 import fr.dreau.trackpacer.domain.PaceMath
+import fr.dreau.trackpacer.domain.PaceSettings
 import fr.dreau.trackpacer.domain.RunPhase
+import fr.dreau.trackpacer.domain.RunState
 import fr.dreau.trackpacer.ui.LocalAmbientMode
 import fr.dreau.trackpacer.ui.RunViewModel
 import kotlinx.coroutines.delay
@@ -62,24 +60,34 @@ import kotlinx.coroutines.isActive
 
 private const val IMMINENT_MS = 3_000L
 
+/** Interactive refresh period: four updates a second keep the ring smooth without a 60 Hz redraw. */
+private const val INTERACTIVE_TICK_MS = 250L
+private const val AMBIENT_TICK_MS = 1_000L
+
+private const val CONTROLS_PAGE = 0
+private const val METRICS_PAGE = 1
+
 /**
- * The chronometer screen. A ring around the bezel fills between two marks, the
- * next mark and its countdown sit above a large chrono, and the screen flashes
- * when the runner is due at a mark.
+ * The session screen, two pages wide. The numbers page (right) carries one edge button for
+ * the action you need at the line: Recovery, Go, or Resume. Nothing else on it reacts to
+ * touch. The controls page, a swipe to the right, holds Pause / Resume and Finish.
  */
 @Composable
 fun RunScreen(viewModel: RunViewModel, onFinished: () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val ambient = LocalAmbientMode.current
     val settings = state.settings
+    val ticking = state.phase == RunPhase.RUNNING || state.phase == RunPhase.RECOVERY
 
-    // Live clock: per frame while interactive, 1 Hz in ambient, frozen otherwise.
+    // Live clock: 4 Hz while interactive, 1 Hz in ambient, frozen otherwise.
     var now by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
-    LaunchedEffect(state.phase, ambient) {
+    LaunchedEffect(ticking, ambient) {
         now = SystemClock.elapsedRealtime()
-        if (state.phase != RunPhase.RUNNING) return@LaunchedEffect
+        if (!ticking) return@LaunchedEffect
+        val period = if (ambient) AMBIENT_TICK_MS else INTERACTIVE_TICK_MS
         while (isActive) {
-            if (ambient) delay(1_000) else withFrameMillis { }
+            // Align on the period so displayed seconds change on time rather than up to one period late.
+            delay(period - SystemClock.elapsedRealtime() % period)
             now = SystemClock.elapsedRealtime()
         }
     }
@@ -88,7 +96,7 @@ fun RunScreen(viewModel: RunViewModel, onFinished: () -> Unit) {
         if (state.phase == RunPhase.FINISHED) onFinished()
     }
 
-    KeepScreenOn(enabled = settings.keepScreenOn && state.phase == RunPhase.RUNNING)
+    KeepScreenOn(enabled = settings.keepScreenOn && ticking)
 
     val flash = remember { Animatable(0f) }
     LaunchedEffect(state.lastMark?.atRealtime) {
@@ -97,40 +105,70 @@ fun RunScreen(viewModel: RunViewModel, onFinished: () -> Unit) {
         flash.animateTo(0f, tween(durationMillis = 700))
     }
 
+    val pagerState = rememberPagerState(initialPage = METRICS_PAGE) { 2 }
+    // After a control tap the phase changes: bring the numbers back without a swipe.
+    LaunchedEffect(state.phase) {
+        if (pagerState.currentPage != METRICS_PAGE) pagerState.animateScrollToPage(METRICS_PAGE)
+    }
+
+    if (ambient) {
+        MetricsPage(state, now, flash.value, ambient = true, onEndRep = {}, onGo = {}, onResume = {})
+        return
+    }
+
+    HorizontalPagerScaffold(pagerState = pagerState) {
+        HorizontalPager(state = pagerState) { page ->
+            AnimatedPage(pageIndex = page, pagerState = pagerState) {
+                when (page) {
+                    METRICS_PAGE -> MetricsPage(
+                        state, now, flash.value, ambient = false,
+                        onEndRep = viewModel::endRep, onGo = viewModel::go, onResume = viewModel::resume,
+                    )
+                    else -> ControlsPage(
+                        state.phase,
+                        onPause = viewModel::pause, onResume = viewModel::resume, onFinish = viewModel::finishSession,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MetricsPage(
+    state: RunState,
+    now: Long,
+    flashAlpha: Float,
+    ambient: Boolean,
+    onEndRep: () -> Unit,
+    onGo: () -> Unit,
+    onResume: () -> Unit,
+) {
+    val settings = state.settings
     val elapsed = state.elapsedMs(now)
     val running = state.phase == RunPhase.RUNNING
-    val stopped = state.phase == RunPhase.STOPPED
+    val recovery = state.phase == RunPhase.RECOVERY
     val paused = state.phase == RunPhase.PAUSED
-    val nextMark = PaceMath.nextMarkMeters(elapsed, settings)
+    val inRep = running || (paused && state.pausedFrom == RunPhase.RUNNING)
+    val inRecovery = recovery || (paused && state.pausedFrom == RunPhase.RECOVERY)
     val msToNext = PaceMath.msToNextMark(elapsed, settings)
-    val imminent = running && msToNext <= IMMINENT_MS
-    val progress = if (running) PaceMath.progressInSplit(elapsed, settings.splitMs) else 1f
-    val accent = if (state.lastMark?.isLap == true) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
-
-    // The side button is reserved by the system on the Pixel Watch, so the whole screen is
-    // the control: tap = pause / resume, long press = end the block.
-    val haptic = LocalHapticFeedback.current
-    val gestureModifier = Modifier.pointerInput(state.phase) {
-        detectTapGestures(
-            onTap = {
-                when (state.phase) {
-                    RunPhase.RUNNING -> { haptic.performHapticFeedback(HapticFeedbackType.Confirm); viewModel.pause() }
-                    RunPhase.PAUSED -> { haptic.performHapticFeedback(HapticFeedbackType.Confirm); viewModel.resume() }
-                    else -> Unit
-                }
-            },
-            onLongPress = {
-                if (state.phase == RunPhase.RUNNING || state.phase == RunPhase.PAUSED) {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    viewModel.stopBlock()
-                }
-            },
-        )
+    val repDue = inRep && settings.hasRepDistance && elapsed >= settings.repEndMs
+    val imminent = running && !repDue && msToNext <= IMMINENT_MS
+    val progress = if (running && !repDue) PaceMath.progressInSplit(elapsed, settings.splitMs) else 0f
+    val timedRecovery = inRecovery && settings.isTimedRecovery
+    val recoveryLeft = settings.recoveryMs - elapsed
+    val overdue = timedRecovery && recoveryLeft <= 0
+    val flashColor = if (state.lastMark?.isLap == true) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
+    val white = Color.White
+    val mainColor = when {
+        ambient -> white
+        imminent || overdue || repDue -> MaterialTheme.colorScheme.tertiary
+        else -> MaterialTheme.colorScheme.onBackground
     }
 
     ScreenScaffold { contentPadding ->
-        Box(modifier = Modifier.fillMaxSize().then(gestureModifier)) {
-            if (!ambient) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (!ambient && running) {
                 CircularProgressIndicator(
                     progress = { progress },
                     modifier = Modifier.fillMaxSize(),
@@ -138,71 +176,88 @@ fun RunScreen(viewModel: RunViewModel, onFinished: () -> Unit) {
                         indicatorColor = if (imminent) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
                         trackColor = MaterialTheme.colorScheme.surfaceContainer,
                     ),
-                    strokeWidth = 7.dp,
+                    strokeWidth = 6.dp,
                 )
-                if (flash.value > 0f) {
-                    Box(
-                        Modifier
-                            .fillMaxSize()
-                            .background(accent.copy(alpha = 0.35f * flash.value)),
-                    )
-                }
+            }
+            if (!ambient && flashAlpha > 0f) {
+                Box(Modifier.fillMaxSize().background(flashColor.copy(alpha = 0.35f * flashAlpha)))
             }
 
-            // Top-aligned, compact column: the bottom third is reserved for the two buttons.
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(top = contentPadding.calculateTopPadding())
-                    .padding(horizontal = 12.dp),
+                    // Below the time text, above the small edge button (46 dp) and a margin.
+                    .padding(top = contentPadding.calculateTopPadding() + 10.dp, bottom = if (ambient) 0.dp else 62.dp)
+                    .padding(horizontal = 18.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Top,
+                verticalArrangement = Arrangement.Center,
             ) {
+                // 1. What is coming.
+                val header = when {
+                    repDue -> stringResource(R.string.rep_due)
+                    running -> stringResource(
+                        R.string.next_mark,
+                        PaceMath.formatInterval(PaceMath.nextMarkMeters(elapsed, settings)),
+                        countdownText(msToNext),
+                    )
+                    recovery -> stringResource(R.string.recovery).uppercase()
+                    paused -> stringResource(R.string.paused).uppercase()
+                    else -> ""
+                }
                 Text(
-                    text = stringResource(R.string.block_number, state.blockNumber),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text = when {
-                        running -> stringResource(R.string.next_mark, nextMark, (msToNext + 999) / 1000)
-                        paused -> stringResource(R.string.block_paused)
-                        stopped -> stringResource(R.string.block_stopped)
-                        else -> ""
+                    text = header,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = when {
+                        ambient -> white
+                        imminent || repDue -> MaterialTheme.colorScheme.tertiary
+                        recovery -> MaterialTheme.colorScheme.secondary
+                        paused -> MaterialTheme.colorScheme.onSurfaceVariant
+                        else -> MaterialTheme.colorScheme.primary
                     },
-                    style = MaterialTheme.typography.titleSmall,
-                    color = if (imminent) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
-                    fontWeight = if (imminent) FontWeight.Bold else null,
                     textAlign = TextAlign.Center,
+                    maxLines = 1,
                 )
-                Chrono(elapsedMs = elapsed, tenths = !ambient, color = if (ambient) Color.White else MaterialTheme.colorScheme.onBackground)
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                ) {
-                    if (settings.showHeartRate) {
+
+                // 2. The big number: chrono in a rep, countdown in a timed recovery.
+                val main = when {
+                    timedRecovery && !overdue -> PaceMath.formatCountdown(recoveryLeft)
+                    timedRecovery -> "+" + PaceMath.formatChrono(-recoveryLeft, tenths = false)
+                    else -> PaceMath.formatChrono(elapsed, tenths = false)
+                }
+                Text(text = main, style = MaterialTheme.typography.numeralLarge, color = mainColor, maxLines = 1)
+
+                // 3. Context, one line: distance in a rep; the rep just done in recovery.
+                Spacer(Modifier.height(2.dp))
+                val context = when {
+                    inRep && settings.showDistance -> distanceLine(elapsed, settings)
+                    inRecovery -> state.lastRep?.let { rep ->
+                        val delta = rep.deltaMs
+                        if (delta != null) PaceMath.formatChrono(rep.durationMs, tenths = true) + " · " + PaceMath.formatDelta(delta)
+                        else PaceMath.formatChrono(rep.durationMs, tenths = true) +
+                            if (settings.showDistance) " · " + distanceText(rep.durationMs, settings) else ""
+                    }
+                    else -> null
+                }
+                if (context != null) {
+                    Text(
+                        text = context,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = if (ambient) white else MaterialTheme.colorScheme.onBackground,
+                        maxLines = 1,
+                    )
+                }
+
+                if (settings.showHeartRate && !ambient) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             Icons.Rounded.Favorite,
                             contentDescription = stringResource(R.string.heart_rate),
                             tint = MaterialTheme.colorScheme.tertiary,
-                            modifier = Modifier.size(14.dp),
+                            modifier = Modifier.size(13.dp),
                         )
                         Spacer(Modifier.width(3.dp))
-                        Text(
-                            text = state.heartRateBpm?.toString() ?: "--",
-                            style = MaterialTheme.typography.labelMedium,
-                        )
-                    }
-                    if (settings.showHeartRate && settings.showDistance) {
-                        Text("  ·  ", style = MaterialTheme.typography.labelMedium)
-                    }
-                    if (settings.showDistance) {
-                        Text(
-                            text = PaceMath.formatDistance(
-                                PaceMath.theoreticalDistanceMeters(elapsed, settings.secondsPerKm),
-                            ),
-                            style = MaterialTheme.typography.labelMedium,
-                        )
+                        Text(text = state.heartRateBpm?.toString() ?: "--", style = MaterialTheme.typography.labelMedium)
                     }
                 }
                 if (state.degraded && !ambient) {
@@ -218,71 +273,97 @@ fun RunScreen(viewModel: RunViewModel, onFinished: () -> Unit) {
 
             if (!ambient && state.isActive) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-                    Row(
-                        modifier = Modifier.padding(bottom = 14.dp),
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    ) {
-                        when {
-                            running -> {
-                                FilledIconButton(onClick = viewModel::pause) {
-                                    Icon(Icons.Rounded.Pause, contentDescription = stringResource(R.string.pause))
-                                }
-                                StopButton(onClick = viewModel::stopBlock)
-                            }
-                            paused -> {
-                                FilledIconButton(onClick = viewModel::resume) {
-                                    Icon(Icons.Rounded.PlayArrow, contentDescription = stringResource(R.string.resume))
-                                }
-                                StopButton(onClick = viewModel::stopBlock)
-                            }
-                            else -> {
-                                FilledIconButton(onClick = viewModel::newBlock) {
-                                    Icon(Icons.Rounded.Replay, contentDescription = stringResource(R.string.new_block))
-                                }
-                                FilledTonalIconButton(onClick = viewModel::finishSession) {
-                                    Icon(Icons.Rounded.Flag, contentDescription = stringResource(R.string.finish))
-                                }
-                            }
-                        }
-                    }
+                    PrimaryAction(running, recovery, onEndRep, onGo, onResume)
                 }
             }
         }
     }
 }
 
-/** mm:ss in a large numeral, tenths in a smaller one so the whole thing fits a 192 dp screen. */
+/** The single control on the numbers page: end the rep, start the next one, or resume. */
 @Composable
-private fun Chrono(elapsedMs: Long, tenths: Boolean, color: Color) {
-    Row(verticalAlignment = Alignment.Bottom) {
-        Text(
-            text = PaceMath.formatChrono(elapsedMs, tenths = false),
-            style = MaterialTheme.typography.numeralMedium,
-            color = color,
-            maxLines = 1,
-        )
-        if (tenths) {
-            Text(
-                text = ".${(elapsedMs / 100) % 10}",
-                style = MaterialTheme.typography.numeralExtraSmall,
-                color = color,
-                maxLines = 1,
-                modifier = Modifier.padding(bottom = 6.dp),
-            )
+private fun PrimaryAction(running: Boolean, recovery: Boolean, onEndRep: () -> Unit, onGo: () -> Unit, onResume: () -> Unit) {
+    when {
+        running -> EdgeButton(
+            onClick = onEndRep,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+            ),
+        ) {
+            Text(stringResource(R.string.end_rep), maxLines = 1)
+        }
+        recovery -> EdgeButton(onClick = onGo) {
+            Text(stringResource(R.string.go), maxLines = 1)
+        }
+        else -> EdgeButton(onClick = onResume, colors = ButtonDefaults.filledTonalButtonColors()) {
+            Text(stringResource(R.string.resume), maxLines = 1)
         }
     }
 }
 
+/** "212 / 400 m" during a measured rep, "212 m" otherwise: one string, so it cannot misalign. */
 @Composable
-private fun StopButton(onClick: () -> Unit) {
-    FilledIconButton(
-        onClick = onClick,
-        colors = IconButtonDefaults.filledIconButtonColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer,
-            contentColor = MaterialTheme.colorScheme.onErrorContainer,
-        ),
-    ) {
-        Icon(Icons.Rounded.Stop, contentDescription = stringResource(R.string.stop))
+private fun distanceLine(elapsedMs: Long, settings: PaceSettings): String {
+    val meters = PaceMath.theoreticalDistanceMeters(elapsedMs, settings.secondsPerKm)
+    return if (settings.hasRepDistance && settings.repMeters < 1_000 && !settings.isRoadInterval) {
+        "${meters.toInt().coerceAtMost(settings.repMeters)} / ${settings.repMeters} m"
+    } else if (settings.hasRepDistance) {
+        distanceText(elapsedMs, settings) + " / " + PaceMath.formatInterval(settings.repMeters)
+    } else {
+        distanceText(elapsedMs, settings)
+    }
+}
+
+@Composable
+private fun distanceText(elapsedMs: Long, settings: PaceSettings): String =
+    PaceMath.formatDistance(
+        PaceMath.theoreticalDistanceMeters(elapsedMs, settings.secondsPerKm),
+        kmFromMeters = if (settings.isRoadInterval) 1_000 else 10_000,
+    )
+
+@Composable
+private fun countdownText(ms: Long): String {
+    val value = PaceMath.formatCountdown(ms)
+    return if (ms < 60_000) "$value s" else value
+}
+
+/** Left page: the rare actions, out of reach of an accidental tap. */
+@Composable
+private fun ControlsPage(phase: RunPhase, onPause: () -> Unit, onResume: () -> Unit, onFinish: () -> Unit) {
+    ScreenScaffold { contentPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(contentPadding)
+                .padding(horizontal = 22.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically),
+        ) {
+            if (phase == RunPhase.PAUSED) {
+                Button(
+                    onClick = onResume,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(R.string.resume), maxLines = 1) },
+                )
+            } else {
+                Button(
+                    onClick = onPause,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.filledTonalButtonColors(),
+                    label = { Text(stringResource(R.string.pause), maxLines = 1) },
+                )
+            }
+            Button(
+                onClick = onFinish,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                ),
+                label = { Text(stringResource(R.string.finish), maxLines = 1) },
+            )
+        }
     }
 }
 

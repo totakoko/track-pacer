@@ -8,6 +8,7 @@ import kotlin.math.PI
 import kotlin.math.exp
 import kotlin.math.min
 import kotlin.math.sin
+import kotlin.math.tanh
 
 /**
  * Synthesised percussive "ding" cues played through [AudioTrack] in static mode.
@@ -16,6 +17,11 @@ import kotlin.math.sin
  * sounds like a soft marimba rather than a raw sine. Pitches sit above 1 kHz because
  * the watch speaker cannot reproduce lower notes cleanly. USAGE_MEDIA routes to
  * Bluetooth earbuds when they are connected.
+ *
+ * Loudness: the waveform is driven through a tanh soft clipper, which raises the RMS
+ * level by roughly 5 dB at the same peak and adds a little harmonic bite that cuts
+ * through wind noise. [setVolume] cannot exceed the media stream level; raising that
+ * is [MediaVolumeBoost]'s job.
  */
 class Beeper(initialVolume: Float = 1f) {
     private companion object {
@@ -24,10 +30,10 @@ class Beeper(initialVolume: Float = 1f) {
         const val E6 = 1318.5
         const val G6 = 1568.0
         const val C7 = 2093.0
+        const val DRIVE = 2.2
+        const val PEAK = 0.97
     }
 
-    /** Early warning: one soft, longer ding. */
-    private val early = buildTrack(ding(C6, 380))
     /** Countdown: short, higher tick. */
     private val count = buildTrack(ding(E6, 110))
     /** Mark: two quick dings. */
@@ -35,7 +41,7 @@ class Beeper(initialVolume: Float = 1f) {
     /** Lap (400 m multiple): rising three-note arpeggio. */
     private val lap = buildTrack(ding(C6, 130) + silence(30) + ding(E6, 130) + silence(30) + ding(G6, 130) + silence(30) + ding(C7, 320))
 
-    private val tracks = listOf(early, count, mark, lap)
+    private val tracks = listOf(count, mark, lap)
 
     init {
         setVolume(initialVolume)
@@ -49,10 +55,9 @@ class Beeper(initialVolume: Float = 1f) {
 
     fun play(kind: SplitEvent.Kind) {
         val track = when (kind) {
-            SplitEvent.Kind.EARLY_BEEP -> early
             SplitEvent.Kind.COUNT_BEEP -> count
             SplitEvent.Kind.MARK -> mark
-            SplitEvent.Kind.LAP -> lap
+            SplitEvent.Kind.LAP, SplitEvent.Kind.REP_END -> lap
         }
         runCatching {
             track.stop()
@@ -89,19 +94,21 @@ class Beeper(initialVolume: Float = 1f) {
 
     /**
      * Percussive tone: fundamental + 2nd/3rd harmonics, 4 ms attack, exponential decay
-     * that reaches about -35 dB at the end of [durationMs].
+     * that reaches about -35 dB at the end of [durationMs], soft-clipped for loudness.
      */
     private fun ding(freqHz: Double, durationMs: Int): ShortArray {
         val n = SAMPLE_RATE * durationMs / 1000
         val attack = SAMPLE_RATE * 4 / 1000
         val tau = n / 4.0
+        val norm = tanh(DRIVE)
         return ShortArray(n) { i ->
             val t = i.toDouble() / SAMPLE_RATE
             val env = min(1.0, i.toDouble() / attack) * exp(-i / tau)
             val wave = sin(2 * PI * freqHz * t) +
                 0.35 * sin(2 * PI * freqHz * 2 * t) +
                 0.15 * sin(2 * PI * freqHz * 3 * t)
-            (wave / 1.5 * env * Short.MAX_VALUE * 0.85).toInt().toShort()
+            val shaped = tanh(DRIVE * wave / 1.5) / norm
+            (shaped * env * Short.MAX_VALUE * PEAK).toInt().toShort()
         }
     }
 

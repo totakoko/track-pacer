@@ -1,10 +1,17 @@
 package fr.dreau.trackpacer.domain
 
 import java.util.Locale
+import kotlin.math.abs
 
 /** Pure pacing arithmetic. No Android dependency, fully unit-testable. */
 object PaceMath {
-    const val LAP_METERS = 400
+    /** On the track a "lap" is 400 m; on the road (500 m / 1 km marks) the distinct cue comes every 5 km. */
+    const val TRACK_LAP_METERS = 400
+    const val ROAD_LAP_METERS = 5_000
+
+    /** The 3-2-1 ticks, milliseconds before the event they announce. */
+    val COUNTDOWN_OFFSETS_MS = longArrayOf(3_000, 2_000, 1_000)
+    private val NO_OFFSETS = longArrayOf()
 
     /** A pre-cue is dropped when it would fall too close to the previous mark. */
     private const val MIN_GAP_AFTER_PREVIOUS_MARK_MS = 2_500L
@@ -32,27 +39,59 @@ object PaceMath {
     fun theoreticalDistanceMeters(elapsedMs: Long, secondsPerKm: Int): Double =
         elapsedMs.toDouble() / secondsPerKm
 
-    fun isLapMark(distanceMeters: Int): Boolean = distanceMeters % LAP_METERS == 0
+    fun lapMeters(intervalMeters: Int): Int =
+        if (intervalMeters >= PaceSettings.ROAD_INTERVAL_METERS) ROAD_LAP_METERS else TRACK_LAP_METERS
 
-    /**
-     * Next audible/haptic event strictly after [elapsedMs].
-     * Candidates are the profile's pre-cues (those that fit inside the split) and the mark itself.
-     */
-    fun nextEvent(elapsedMs: Long, settings: PaceSettings): SplitEvent {
+    fun isLapMark(distanceMeters: Int, intervalMeters: Int): Boolean =
+        distanceMeters % lapMeters(intervalMeters) == 0
+
+    /** Next mark cue strictly after [elapsedMs]: the optional 3-2-1, then the mark itself. */
+    fun nextMarkEvent(elapsedMs: Long, settings: PaceSettings): SplitEvent {
         val splitMs = settings.splitMs
         val index = nextSplitIndex(elapsedMs, splitMs)
         val markAt = index * splitMs
         val meters = index * settings.intervalMeters
-        for (offset in settings.cueProfile.offsetsMs) {
-            if (offset > splitMs - MIN_GAP_AFTER_PREVIOUS_MARK_MS) continue
-            val at = markAt - offset
-            if (at > elapsedMs) {
-                val kind = if (offset >= CueProfile.EARLY_THRESHOLD_MS) SplitEvent.Kind.EARLY_BEEP else SplitEvent.Kind.COUNT_BEEP
-                return SplitEvent(at, meters, kind, (offset / 1000).toInt())
-            }
+        val kind = if (isLapMark(meters, settings.intervalMeters)) SplitEvent.Kind.LAP else SplitEvent.Kind.MARK
+        return cuesTowards(elapsedMs, markAt, markOffsets(settings), meters, kind)
+    }
+
+    /**
+     * Next cue of a rep, strictly after [elapsedMs]: the pace marks and, when the rep has a
+     * distance, its end ([SplitEvent.Kind.REP_END]), which replaces the mark it falls on.
+     * Null once a measured rep is past its end: the chrono keeps running until the runner presses.
+     */
+    fun nextRepEvent(elapsedMs: Long, settings: PaceSettings): SplitEvent? {
+        val endAt = settings.repEndMs
+        if (endAt <= 0) return nextMarkEvent(elapsedMs, settings)
+        if (elapsedMs >= endAt) return null
+        val mark = nextMarkEvent(elapsedMs, settings)
+        val end = cuesTowards(elapsedMs, endAt, markOffsets(settings), settings.repMeters, SplitEvent.Kind.REP_END)
+        return if (end.atMs <= mark.atMs) end else mark
+    }
+
+    /**
+     * Next cue of a timed recovery, strictly after [elapsedMs]: always a 3-2-1, then the end
+     * (a lap-style signal when the next rep starts by itself, a plain mark when the runner
+     * must press Go). Null once the recovery is over or when untimed.
+     */
+    fun nextRecoveryEvent(elapsedMs: Long, settings: PaceSettings): SplitEvent? {
+        val endAt = settings.recoveryMs
+        if (endAt <= 0 || elapsedMs >= endAt) return null
+        val endKind = if (settings.autoStart) SplitEvent.Kind.LAP else SplitEvent.Kind.MARK
+        return cuesTowards(elapsedMs, endAt, COUNTDOWN_OFFSETS_MS, 0, endKind)
+    }
+
+    private fun markOffsets(settings: PaceSettings): LongArray =
+        if (settings.countdownCues) COUNTDOWN_OFFSETS_MS else NO_OFFSETS
+
+    /** The pre-cues before [endAt], then the end itself; first one strictly after [elapsedMs]. */
+    private fun cuesTowards(elapsedMs: Long, endAt: Long, offsets: LongArray, meters: Int, endKind: SplitEvent.Kind): SplitEvent {
+        for (offset in offsets) {
+            if (offset > endAt - MIN_GAP_AFTER_PREVIOUS_MARK_MS) continue
+            val at = endAt - offset
+            if (at > elapsedMs) return SplitEvent(at, meters, SplitEvent.Kind.COUNT_BEEP, (offset / 1000).toInt())
         }
-        val kind = if (isLapMark(meters)) SplitEvent.Kind.LAP else SplitEvent.Kind.MARK
-        return SplitEvent(markAt, meters, kind)
+        return SplitEvent(endAt, meters, endKind)
     }
 
     fun formatPace(secondsPerKm: Int): String =
@@ -71,9 +110,35 @@ object PaceMath {
         }
     }
 
-    fun formatDistance(meters: Double): String =
-        if (meters >= 10_000) String.format(Locale.ROOT, "%.2f km", meters / 1000)
+    /** Countdown shown as whole seconds, rounded up so "1" is still displayed right before the mark. */
+    fun formatCountdown(ms: Long): String {
+        val seconds = (ms + 999) / 1000
+        return if (seconds >= 60) formatChrono(seconds * 1000, tenths = false) else seconds.toString()
+    }
+
+    /** "+1.9 s" / "−0.8 s": actual minus target, tenths. */
+    fun formatDelta(deltaMs: Long): String {
+        val sign = if (deltaMs < 0) "−" else "+"
+        return String.format(Locale.ROOT, "%s%.1f s", sign, abs(deltaMs) / 1000.0)
+    }
+
+    /**
+     * Metres below [kmFromMeters], kilometres with two decimals from there on.
+     * Track sessions keep metres up to 10 km; road sessions switch at 1 km.
+     */
+    fun formatDistance(meters: Double, kmFromMeters: Int = 10_000): String =
+        if (meters >= kmFromMeters) String.format(Locale.ROOT, "%.2f km", meters / 1000)
         else String.format(Locale.ROOT, "%d m", meters.toInt())
+
+    /** "100 m", "1 km", "1.5 km", "12.3 km" for the pickers and the sentence. */
+    fun formatInterval(meters: Int): String = when {
+        meters < 1000 -> "$meters m"
+        meters % 1000 == 0 -> "${meters / 1000} km"
+        else -> String.format(Locale.ROOT, "%.1f km", meters / 1000.0)
+    }
+
+    /** "1:30" for the duration pickers; the caller handles 0 ("free"). */
+    fun formatDuration(seconds: Int): String = formatPace(seconds)
 }
 
 /** A scheduled cue: when it fires (block-relative ms), which mark it belongs to, and its nature. */
@@ -81,10 +146,10 @@ data class SplitEvent(
     val atMs: Long,
     val markMeters: Int,
     val kind: Kind,
-    /** For pre-cues: seconds remaining before the mark. */
+    /** For countdown ticks: seconds remaining before the event. */
     val secondsBefore: Int = 0,
 ) {
-    enum class Kind { EARLY_BEEP, COUNT_BEEP, MARK, LAP }
+    enum class Kind { COUNT_BEEP, MARK, LAP, REP_END }
 
-    val isPreCue: Boolean get() = kind == Kind.EARLY_BEEP || kind == Kind.COUNT_BEEP
+    val isPreCue: Boolean get() = kind == Kind.COUNT_BEEP
 }

@@ -12,6 +12,8 @@
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Wakes the CPU a few seconds before each cue so the wake lock can be dropped in between. -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.VIBRATE" />
 
     <!-- Heart rate: legacy permission up to Wear OS 5.1, granular health permission from Wear OS 6. -->
@@ -52,5 +54,9 @@
             android:name=".service.PacerService"
             android:exported="false"
             android:foregroundServiceType="health|mediaPlayback" />
+
+        <receiver
+            android:name=".service.WakeReceiver"
+            android:exported="false" />
     </application>
 </manifest>

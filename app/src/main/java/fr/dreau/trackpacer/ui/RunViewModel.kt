@@ -16,8 +16,8 @@ class RunViewModel(application: Application) : AndroidViewModel(application) {
     fun startSession() = PacerService.start(getApplication())
     fun pause() = PacerService.pause(getApplication())
     fun resume() = PacerService.resume(getApplication())
-    fun stopBlock() = PacerService.stopBlock(getApplication())
-    fun newBlock() = PacerService.newBlock(getApplication())
+    fun endRep() = PacerService.endRep(getApplication())
+    fun go() = PacerService.go(getApplication())
     fun finishSession() = PacerService.finish(getApplication())
     fun clearSession() = holder.reset()
 }

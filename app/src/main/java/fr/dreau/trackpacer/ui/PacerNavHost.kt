@@ -8,10 +8,11 @@ import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.currentBackStackEntryAsState
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
-import fr.dreau.trackpacer.ui.screens.CueProfileScreen
 import fr.dreau.trackpacer.ui.screens.HomeScreen
 import fr.dreau.trackpacer.ui.screens.IntervalScreen
 import fr.dreau.trackpacer.ui.screens.PaceScreen
+import fr.dreau.trackpacer.ui.screens.RecoveryScreen
+import fr.dreau.trackpacer.ui.screens.RepDistanceScreen
 import fr.dreau.trackpacer.ui.screens.RunScreen
 import fr.dreau.trackpacer.ui.screens.SettingsScreen
 import fr.dreau.trackpacer.ui.screens.SummaryScreen
@@ -20,8 +21,9 @@ object Routes {
     const val HOME = "home"
     const val PACE = "pace"
     const val INTERVAL = "interval"
+    const val REP = "rep"
+    const val RECOVERY = "recovery"
     const val SETTINGS = "settings"
-    const val CUES = "cues"
     const val RUN = "run"
     const val SUMMARY = "summary"
 }
@@ -47,6 +49,8 @@ fun PacerNavHost() {
                     runViewModel = runViewModel,
                     onEditPace = { navController.navigate(Routes.PACE) },
                     onEditInterval = { navController.navigate(Routes.INTERVAL) },
+                    onEditRep = { navController.navigate(Routes.REP) },
+                    onEditRecovery = { navController.navigate(Routes.RECOVERY) },
                     onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                     onRun = { navController.navigate(Routes.RUN) },
                 )
@@ -57,14 +61,14 @@ fun PacerNavHost() {
             composable(Routes.INTERVAL) {
                 IntervalScreen(viewModel = settingsViewModel, onDone = { navController.popBackStack() })
             }
-            composable(Routes.SETTINGS) {
-                SettingsScreen(
-                    viewModel = settingsViewModel,
-                    onEditCues = { navController.navigate(Routes.CUES) },
-                )
+            composable(Routes.REP) {
+                RepDistanceScreen(viewModel = settingsViewModel, onDone = { navController.popBackStack() })
             }
-            composable(Routes.CUES) {
-                CueProfileScreen(viewModel = settingsViewModel, onDone = { navController.popBackStack() })
+            composable(Routes.RECOVERY) {
+                RecoveryScreen(viewModel = settingsViewModel, onDone = { navController.popBackStack() })
+            }
+            composable(Routes.SETTINGS) {
+                SettingsScreen(viewModel = settingsViewModel)
             }
             composable(Routes.RUN) {
                 RunScreen(

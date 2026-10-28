@@ -14,10 +14,10 @@ class Haptics(context: Context) {
     fun play(kind: SplitEvent.Kind) {
         if (!vibrator.hasVibrator()) return
         val effect = when (kind) {
-            SplitEvent.Kind.EARLY_BEEP -> VibrationEffect.createOneShot(90, VibrationEffect.DEFAULT_AMPLITUDE)
             SplitEvent.Kind.COUNT_BEEP -> VibrationEffect.createOneShot(40, VibrationEffect.DEFAULT_AMPLITUDE)
-            SplitEvent.Kind.MARK -> VibrationEffect.createWaveform(longArrayOf(0, 120, 60, 120), -1)
-            SplitEvent.Kind.LAP -> VibrationEffect.createWaveform(longArrayOf(0, 120, 80, 120, 80, 250), -1)
+            // Marks use full amplitude: a running wrist dulls anything softer.
+            SplitEvent.Kind.MARK -> VibrationEffect.createWaveform(longArrayOf(0, 120, 60, 120), intArrayOf(0, 255, 0, 255), -1)
+            SplitEvent.Kind.LAP, SplitEvent.Kind.REP_END -> VibrationEffect.createWaveform(longArrayOf(0, 120, 80, 120, 80, 250), intArrayOf(0, 255, 0, 255, 0, 255), -1)
         }
         runCatching { vibrator.vibrate(effect) }
     }
