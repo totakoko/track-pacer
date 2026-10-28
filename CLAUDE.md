@@ -43,7 +43,8 @@ fois. Avant de rendre la main :
 - Aucun geste « n'importe où » sur l'écran de course : seules les pastilles et les pages
   (contrôles à gauche, réglages à droite) agissent. Le thème désactive
   `android:windowSwipeToDismiss` : sans ça, un balayage vers la droite depuis la page de
-  contrôles fermait l'application.
+  contrôles fermait l'application. Le seul balayage qui quitte est celui de l'accueil
+  (`SwipeToDismissBox` → `finishAndRemoveTask()`).
 - Les transitions rép → récup → rép sont manuelles ; les options « Récup auto » et « Départ
   auto » restent facultatives.
 - Énergie : le service ne tient le CPU qu'autour des bips (alarme exacte sinon) ; l'activité

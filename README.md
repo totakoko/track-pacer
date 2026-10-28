@@ -25,6 +25,8 @@ tu compares le bip avec la marque au sol.
   chrono) → **Go** sur ton appui → … → **Terminer**, depuis la page de contrôles (glisser vers
   la droite : Pause / Reprendre, Terminer). Rien d'autre sur l'écran de course ne réagit au
   toucher. Le bouton latéral de la Pixel Watch 2 est une touche système, jamais transmise.
+- Quitter : balayer vers la droite depuis le bord gauche de l'accueil ferme l'application.
+  Une séance en cours continue dans son service (indicateur sur le cadran) jusqu'à Terminer.
 - Options : **Départ auto** (Go tout seul à la fin d'une récup chronométrée) et **Récup auto**
   (bascule au temps cible de la rép, désactivée par défaut : seul ton appui connaît le vrai
   temps). **3-2-1** avant chaque rappel, désactivé par défaut.

@@ -1,7 +1,14 @@
 package fr.dreau.trackpacer.ui.screens
 
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitHorizontalTouchSlopOrCancellation
+import androidx.compose.foundation.gestures.horizontalDrag
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,8 +25,13 @@ import androidx.compose.material.icons.rounded.HourglassBottom
 import androidx.compose.material.icons.rounded.Straighten
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -40,6 +52,7 @@ import fr.dreau.trackpacer.domain.PaceSettings
 import fr.dreau.trackpacer.service.Permissions
 import fr.dreau.trackpacer.ui.RunViewModel
 import fr.dreau.trackpacer.ui.SettingsViewModel
+import kotlinx.coroutines.launch
 
 /**
  * Two pages: the session as one sentence, every number a chip that opens its picker,
@@ -96,6 +109,49 @@ fun HomeScreen(
     }
 }
 
+/**
+ * Home is the root: a drag to the right from its left edge closes the app for good. The
+ * platform gesture is off in the theme (see styles.xml) and the pager leaves its left edge
+ * zone to us on the first page. The page follows the finger, then either leaves or snaps back.
+ * A running session keeps its foreground service and watch-face indicator; Finish frees it.
+ */
+@Composable
+private fun Modifier.exitOnEdgeDrag(): Modifier {
+    val activity = LocalActivity.current
+    val offset = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+    return this
+        .pointerInput(Unit) {
+            val edge = size.width * EXIT_EDGE_FRACTION
+            awaitEachGesture {
+                // Only a touch that lands in the edge zone is ours; anything else stays with the pager.
+                val down = awaitFirstDown(requireUnconsumed = false)
+                if (down.position.x > edge) return@awaitEachGesture
+                val slop = awaitHorizontalTouchSlopOrCancellation(down.id) { change, over ->
+                    if (over > 0f) change.consume()
+                } ?: return@awaitEachGesture
+                scope.launch { offset.snapTo((slop.position.x - down.position.x).coerceAtLeast(0f)) }
+                val completed = horizontalDrag(slop.id) { change ->
+                    val delta = change.positionChange().x
+                    change.consume()
+                    scope.launch { offset.snapTo((offset.value + delta).coerceAtLeast(0f)) }
+                }
+                if (completed && offset.value >= size.width * EXIT_THRESHOLD_FRACTION) {
+                    scope.launch {
+                        offset.animateTo(size.width.toFloat(), tween(150))
+                        activity?.finishAndRemoveTask()
+                    }
+                } else {
+                    scope.launch { offset.animateTo(0f, tween(200)) }
+                }
+            }
+        }
+        .graphicsLayer { translationX = offset.value }
+}
+
+private const val EXIT_EDGE_FRACTION = 0.2f
+private const val EXIT_THRESHOLD_FRACTION = 0.4f
+
 @Composable
 private fun SentencePage(
     settings: PaceSettings,
@@ -108,7 +164,7 @@ private fun SentencePage(
     onRun: () -> Unit,
 ) {
     ScreenScaffold { contentPadding ->
-        Box(modifier = Modifier.fillMaxSize()) {
+        Box(modifier = Modifier.fillMaxSize().exitOnEdgeDrag()) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
